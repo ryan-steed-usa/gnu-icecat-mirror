@@ -30,8 +30,10 @@ pref("privacy.firstparty.isolate", true);
 
 // Extensions cannot be updated without permission
 pref("extensions.update.enabled", false);
-// Use LANG environment variable to choose locale
-pref("intl.locale.matchOS", true);
+
+// Set the default locale to that of the operating system.
+pref("intl.locale.requested", "");
+
 // Allow unsigned langpacks
 pref("extensions.langpacks.signatures.required", false);
 // Disable default browser checking.
