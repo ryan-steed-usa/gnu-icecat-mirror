@@ -31,7 +31,9 @@
  * and handle messages (on message event).
  *
  * NBS for Firefox uses the DNS web extension API to resolve domain names. As the domain names are
- * cached and needs to be resolved without NBS, the performance impact should be negligible.
+ * cached and needs to be resolved without NBS, the performance impact should be negligible. The DNS
+ * API is not used for proxied requests to prevent DNS leaks of resolutions that would be initiated
+ * by the DNS proxy. See https://pagure.io/JShelter/webextension/issue/41 for more details.
  */
 
 /**
@@ -65,6 +67,9 @@ async function beforeSendHeadersListener(requestDetail)
 	var sourceResolution = "";
 	var blockNotifications = false;
 
+	const {proxyInfo} = requestDetail; // see https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/proxy/ProxyInfo
+	const dnsAllowed = !(proxyInfo && (proxyInfo.type && proxyInfo.type.startsWith("http") || proxyInfo.proxyDNS));
+
 	//Host found among user's trusted hosts, allow it right away
 	if (isNbsWhitelisted(sourceDomain))
 	{
@@ -90,9 +95,9 @@ async function beforeSendHeadersListener(requestDetail)
 			isSourcePrivate = true;
 		}
 	}
-	else //SOURCE is hostname
-	{
-		//Resoluting DNS query for source domain
+	else if (dnsAllowed) //SOURCE is hostname
+ 	{
+		//Resolving DNS query for source domain
 		sourceResolution = browser.dns.resolve(fullSourceDomain).then((val) =>
 		{
 			//Assigning source IPs
@@ -143,9 +148,9 @@ async function beforeSendHeadersListener(requestDetail)
 			}
 		}
 	}
-	else //Target is hostname
+	else if (dnsAllowed) //Target is hostname
 	{
-		//Resoluting DNS query for destination domain
+		//Resolving DNS query for destination domain
 		destinationResolution = browser.dns.resolve(fullTargetDomain).then((val) =>
 		{
 			//Assigning source IPs

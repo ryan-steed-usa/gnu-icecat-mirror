@@ -1,7 +1,7 @@
 /*
  * NoScript Commons Library
  * Reusable building blocks for cross-browser security/privacy WebExtensions.
- * Copyright (C) 2020-2021 Giorgio Maone <https://maone.net>
+ * Copyright (C) 2020-2023 Giorgio Maone <https://maone.net>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -18,7 +18,7 @@
  * this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-// depends on /nscl/lib/sha256.js
+// depends on /nscl/common/sha256.js
 // depends on /nscl/common/uuid.js
 
 "use strict";
@@ -69,7 +69,7 @@ var DocStartInjection = (() => {
 
     if (repeating) {
       let scriptsBlock = [...scripts].join("\n");
-      let injectionId = `injection:${uuid()}:${sha256(scriptsBlock)}`;
+      let injectionId = `injection:${uuid()}:${await sha256(scriptsBlock)}`;
       let args = {
         code: `(() => {
           let injectionId = ${JSON.stringify(injectionId)};
@@ -215,7 +215,7 @@ var DocStartInjection = (() => {
     },
     unregister(scriptBuilder) {
       scriptBuilders.delete(scriptBuilder);
-      if (scriptBuilders.size() === 0) listen(false);
+      if (scriptBuilders.size === 0) listen(false);
     }
   };
 })();

@@ -40,32 +40,35 @@ function prepare_level_config(action_descr, params) {
 	var unsupported_apis = wrapping_groups.groups.reduce((acc, group) =>
 		group.wrappers.reduce(find_unsupported_apis, acc), "");
 	if (unsupported_apis !== "") {
-		unsupported_apis = `<div class="unsupported_api"><p>Your browser does not support:</p>${unsupported_apis}</div>`;
+		unsupported_apis = `<div class="unsupported_api">${browser.i18n.getMessage("omittedAPIsHeading")} ${unsupported_apis}</div>`;
 	}
 	var fragment = document.createRange().createContextualFragment(`
 <div>
-		<p>Note that for fingerprintability prevention, JShelter does not wrap objects that are not defined.</p>
-	${unsupported_apis}
 	<div>
 	  <h2>${action_descr}</h2>
 	</div>
+	<p class="alert">
+			${browser.i18n.getMessage("newLevelsNotRecommended")}
+	</p>
 	<form>
 
 		<!-- Metadata -->
 		<div class="main-section">
-			<label for="level_text">Name:</label>
+			<label for="level_text">${browser.i18n.getMessage("formlabelName")}</label>
 			<input id="level_text" value="${escape(params.level_text)}"></input>
 			<input type="hidden" id="level_id" ${params.level_id != "" ? "disabled" : ""} value="${escape(params.level_id)}"></input>
 		</div>
 		<div class="main-section">
-			<label for="level_description">Description:</label>
+			<label for="level_description">${browser.i18n.getMessage("formlabelDescription")}</label>
 			<input id="level_description" value="${escape(params.level_description)}"></input>
 		</div>
 
 		<div id="tweaks"></div>
 		
-		<button id="save" class="jsr-button">Save custom level</button>
+		<button id="cancel" class="jsr-button">${browser.i18n.getMessage("ButtonCancel")}</button>
+		<button id="save" class="jsr-button">${browser.i18n.getMessage("ButtonSaveCustomLevel")}</button>
 	</form>
+	${unsupported_apis}
 </div>`);
 	configuration_area_el.appendChild(fragment);
 
@@ -98,7 +101,7 @@ function prepare_level_config(action_descr, params) {
 				custom_levels = stored_levels.custom_levels;
 				let ok = false;
 				if (new_level.level_id in custom_levels) {
-					ok = window.confirm("Custom level " + new_level.level_id + " already exists. It will be overriden.");
+					ok = window.confirm(browser.i18n.getMessage("customLevelAlreadyExistsItWillBeOverridden", new_level.level_id));
 				}
 				else {
 					ok = true;
@@ -110,20 +113,23 @@ function prepare_level_config(action_descr, params) {
 						location = "";
 					}
 					catch (err) {
-						alert("Custom level were not updated, please try again later.");
+						alert(browser.i18n.getMessage("customLevelWereNotUpdated"));
 					}
 				}
 			}
 			browser.storage.sync.get("custom_levels").then(updateLevels.bind(null, new_level));
 		}
 		else {
-			alert("Please provide all required fields: ID, Name, and Decription");
+			alert(browser.i18n.getMessage("NewLevelMissingNameOrDescription"));
 		}
+	});
+	document.getElementById("cancel").addEventListener("click", function(e) {
+		document.location = "options.html";
 	});
 }
 
 function edit_level(id) {
-	prepare_level_config("Edit level " + escape(id), levels[id]);
+	prepare_level_config(browser.i18n.getMessage("JSSeditLevelHeading", escape(levels[id].level_text)), levels[id]);
 }
 
 function restore_level(id, level_params) {
@@ -146,46 +152,23 @@ function show_existing_level(levelsEl, level) {
 	var fragment = document.createRange().createContextualFragment(`<li id="li-${escape(level)}">
 		<button class="level" id="${escape(currentId)}" title="${escape(levels[level].level_description)}">
 			${escape(levels[level].level_text)}
-		</button>
-		<span class="help_ovisible">${escape(create_short_text(levels[level].level_description, 50))}</span>
-		<span></span>
-		<p class="hidden_help_text"><label for="${escape(currentId)}">${escape(levels[level].level_description)}</label></p>
+		</button><span></span>
+		<p class="hidden_help_text"><label class="level_button_descr" for="${escape(currentId)}">${escape(levels[level].level_description)}</label></p>
 		</li>`);
 	levelsEl.appendChild(fragment);
 	var lielem = document.getElementById(`li-${level}`); // Note that FF here requires unescaped ID
-	if (levels[level].builtin === true) {
-		var view = document.createElement("button");
-		view.id = `show-tweaks-${escape(level)}`;
-		view.classList.add("help");
-		view.appendChild(document.createTextNode("⤵"));
-		var tweaksEl = document.createElement("div");
-		tweaksEl.classList.add("tweakgrid");
-		tweaksEl.classList.add("hidden_descr");
-		tweaksEl.id = `tweaks-${escape(level)}`;
-		lielem.getElementsByTagName('button')[0].insertAdjacentElement("afterend", view);
-		lielem.appendChild(tweaksEl);
-		let tweaksBusiness = Object.create(tweaks_gui);
-		tweaksBusiness.get_current_tweaks = function() {
-			return getTweaksForLevel(level, {});
-		};
-		tweaksBusiness.create_tweaks_html(tweaksEl);
-		view.addEventListener("click", function(ev) {
-			tweaksEl.classList.toggle("hidden_descr");
-			ev.preventDefault();
-		});
-	}
-	else {
+	if (levels[level].builtin !== true) {
 		var existPref = document.createElement("span");
 		existPref.setAttribute("id", `li-exist-group-${escape(level)}`);
 		lielem.appendChild(existPref);
 		var edit = document.createElement("button");
 		existPref.appendChild(edit);
 		edit.addEventListener("click", edit_level.bind(edit, level));
-		edit.appendChild(document.createTextNode("Edit"));
+		edit.appendChild(document.createTextNode(browser.i18n.getMessage("ButtonEdit")));
 		var remove = document.createElement("button");
 		existPref.appendChild(remove);
 		remove.addEventListener("click", remove_level.bind(remove, level));
-		remove.appendChild(document.createTextNode("Remove"));
+		remove.appendChild(document.createTextNode(browser.i18n.getMessage("ButtonRemove")));
 		var removedPref = document.createElement("span");
 		removedPref.setAttribute("id", `li-removed-group-${escape(level)}`);
 		removedPref.classList.add("hidden");
@@ -193,10 +176,10 @@ function show_existing_level(levelsEl, level) {
 		var restore = document.createElement("button");
 		removedPref.appendChild(restore);
 		restore.addEventListener("click", restore_level.bind(restore, level, levels[level]));
-		restore.appendChild(document.createTextNode("Restore"));
+		restore.appendChild(document.createTextNode(browser.i18n.getMessage("ButtonRestore")));
 	}
-	prepareHiddenHelpText(lielem.getElementsByClassName('hidden_help_text'), lielem.getElementsByClassName('help_ovisible'));
-	var current = document.getElementById(currentId)
+	prepareHiddenHelpText(lielem.getElementsByClassName('hidden_help_text'), []);
+	var current = document.getElementById(escape(currentId))
 	current.addEventListener("click", function() {
 		for (let child of levelsEl.children) {
 			child.children[0].classList.remove("active");
@@ -204,6 +187,13 @@ function show_existing_level(levelsEl, level) {
 		this.classList.add("active");
 		setDefaultLevel(level);
 	});
+	current.addEventListener("mouseenter", function() {
+		if (level !== default_level.level_id) {
+			lev = levels[level];
+			update_level_details(lev.level_text + " level (currently not applied by default), details:", lev);
+		}
+	});
+	current.addEventListener("mouseout", update_level_details_default);
 }
 
 function remove_level(id) {
@@ -222,6 +212,20 @@ function remove_level(id) {
 	browser.storage.sync.get("custom_levels").then(remove_level);
 }
 
+function update_level_details(heading, level) {
+	document.getElementById("current-level-tweaks-heading").textContent = heading;
+	var currentTweaksEl = document.getElementById("current-level-tweaks");
+	let tweaksBusiness = Object.create(tweaks_gui);
+	tweaksBusiness.get_current_tweaks = function() {
+		return getTweaksForLevel(level.level_id, {});
+	};
+	tweaksBusiness.create_tweaks_html(currentTweaksEl);
+}
+
+function update_level_details_default() {
+	update_level_details(default_level.level_text + " level (currently applied by default), details:", default_level);
+}
+
 function insert_levels() {
 	// Insert all known levels to GUI
 	var allLevelsElement = document.getElementById("levels-list");
@@ -230,6 +234,7 @@ function insert_levels() {
 	}
 	// Select default level
 	document.getElementById("level-" + default_level.level_id).classList.add("active");
+	update_level_details_default();
 }
 
 window.addEventListener("load", async function() {
@@ -258,10 +263,11 @@ document.getElementById("new_level").addEventListener("click", function() {
 		seq++;
 	}	while (levels[new_id] !== undefined)
 	new_level.level_id = new_id;
-	prepare_level_config("Add new level", new_level)
+	prepare_level_config(browser.i18n.getMessage("JSSaddLevelHeading"), new_level)
 });
 
 document.getElementById("nbs-whitelist-show").addEventListener("click", () => show_whitelist("nbs"));
+document.getElementById("nbs-whitelist-hide").addEventListener("click", () => hide_whitelist("nbs"));
 document.getElementById("nbs-whitelist-add-button").addEventListener("click", () => add_to_whitelist("nbs"));
 document.getElementById("nbs-whitelist-input").addEventListener('keydown', (e) => {if (e.key === 'Enter') add_to_whitelist("nbs")});
 document.getElementById("nbs-whitelist-remove-button").addEventListener("click", () => remove_from_whitelist("nbs"));
@@ -269,6 +275,7 @@ document.getElementById("nbs-whitelist-select").addEventListener('keydown', (e) 
 document.getElementsByClassName("slider")[0].addEventListener("click", () => {setTimeout(control_slider, 200, "nbs")});
 
 document.getElementById("fpd-whitelist-show").addEventListener("click", () => show_whitelist("fpd"));
+document.getElementById("fpd-whitelist-hide").addEventListener("click", () => hide_whitelist("fpd"));
 document.getElementById("fpd-whitelist-add-button").addEventListener("click", () => add_to_whitelist("fpd"));
 document.getElementById("fpd-whitelist-input").addEventListener('keydown', (e) => {if (e.key === 'Enter') add_to_whitelist("fpd")});
 document.getElementById("fpd-whitelist-remove-button").addEventListener("click", () => remove_from_whitelist("fpd"));
@@ -307,6 +314,15 @@ function show_whitelist(prefix) {
 	loadWhitelist(prefix);
 	var whitelist = document.getElementById(prefix + "-whitelist-container");
 	whitelist.classList.toggle("hidden");
+	document.getElementById(prefix + "-whitelist-show").classList.add("hidden");
+	document.getElementById(prefix + "-whitelist-hide").classList.remove("hidden");
+}
+
+function hide_whitelist(prefix) {
+	var whitelist = document.getElementById(prefix + "-whitelist-container");
+	whitelist.classList.toggle("hidden");
+	document.getElementById(prefix + "-whitelist-show").classList.remove("hidden");
+	document.getElementById(prefix + "-whitelist-hide").classList.add("hidden");
 }
 
 function add_to_whitelist(prefix)
@@ -397,9 +413,7 @@ function loadWhitelist(prefix)
 	var listbox = document.getElementById(prefix + "-whitelist-select");
 	listbox.options.length = 0;
 	
-	var whitelistName;
-	if (prefix == "nbs") whitelistName = "nbsWhitelist";
-	if (prefix == "fpd") whitelistName = "fpdWhitelist";
+	var whitelistName = prefix + "Whitelist";
 	
 	//Get the whitelist
 	browser.storage.sync.get([whitelistName]).then(function(result)

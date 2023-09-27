@@ -46,11 +46,11 @@ function farbleCanvasDataBrave(rowIterator, width) {
 		crc.next(row);
 	}
 	var thiscanvas_prng = alea(domainHash, "CanvasFarbling", crc.crc);
-	var data_count = BigInt(BigInt(width) * 4n);
+	var data_count = width * 4;
 
 	for (row of rowIterator()) {
-		for (let i = 0n; i < data_count; i++) {
-			if ((i % 4n) === 3n) {
+		for (let i = 0; i < data_count; i++) {
+			if ((i % 4) === 3) {
 				// Do not modify alpha
 				continue;
 			}

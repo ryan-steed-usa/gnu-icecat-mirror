@@ -5,6 +5,7 @@
  *  \author Copyright (C) 2021  Matus Svancar
  *  \author Copyright (C) 2021  Giorgio Maone
  *  \author Copyright (C) 2021  Marek Salon
+ *  \author Copyright (C) 2023  Martin Zmitko
  *
  *  \license SPDX-License-Identifier: GPL-3.0-or-later
  */
@@ -25,10 +26,9 @@
 
 var wrappersPort;
 var pageConfiguration = null;
-function configureInjection({currentLevel, code, wrappers, domainHash, sessionHash}) {
+function configureInjection({currentLevel, fpdWrappers, domainHash}) {
 	if (pageConfiguration) return; // one shot
 	pageConfiguration = {currentLevel};
-	if (!code) return true; // nothing to wrap, bail out!
 	if(browser.extension.inIncognitoContext){
 		// Redefine the domainHash for incognito context:
 		// Compute the SHA256 hash of the original hash so that the incognito hash is:
@@ -39,6 +39,24 @@ function configureInjection({currentLevel, code, wrappers, domainHash, sessionHa
 		hash.update(JSON.stringify(domainHash));
 		domainHash = hash.hex();
 	}
+	// Append argument reporting setting to JSS wrapper definitions
+	fp_append_reporting_to_jss_wrappers(fpdWrappers);
+	// Generate wrapping code
+	var code = wrap_code(currentLevel.wrappers);
+	// Generate FPD wrapping code
+	if (fpdWrappers) {
+		if (!code) {
+			code = fp_generate_wrapping_code(fpdWrappers);
+		}
+		else {
+			code = fp_update_wrapping_code(code, currentLevel.wrappers, fpdWrappers);
+		}
+	}
+	// Insert farbling WASM module into wrapped code if enabled, only when farbling is actually used 
+	if (currentLevel.wasm && (currentLevel.audiobuffer === 1 || currentLevel.htmlcanvaselement === 1)) {
+		code = insert_wasm_code(code);
+	}
+
 	var aleaCode = `(() => {
 	var domainHash =  ${JSON.stringify(domainHash)};
 	${crc16}
@@ -67,6 +85,12 @@ function configureInjection({currentLevel, code, wrappers, domainHash, sessionHa
 	return false;
 }
 
+/**
+ * See https://pagure.io/JShelter/paper2022/c/a7e7e88edecfa19c3a52542b553bf1dc9b4388a9?branch=cnil,
+ * https://pagure.io/JShelter/webextension/issue/70 and
+ * https://pagure.io/JShelter/webextension/issue/46#comment-793783
+ * for more information on the early injection mechanism.
+ */
 if ("configuration" in window) {
 	configureInjection(configuration);
 } else {

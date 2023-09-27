@@ -21,7 +21,7 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
-function installUpdate() {
+async function installUpdate() {
 	/**
 	 * 0.3+ storage
 	 *  {
@@ -44,7 +44,7 @@ function installUpdate() {
 	 *
 	 *
 	 */
-	browser.storage.sync.get(null).then(function (item) {
+		let item = await browser.storage.sync.get(null);
 		if (!item.hasOwnProperty("version") || (item.version < 2.1)) {
 			browser.storage.sync.clear();
 			console.log("All JavaScript Restrictor data cleared! Unfortunately, we do not migrate settings from versions bellow 0.3.");
@@ -434,33 +434,77 @@ function installUpdate() {
 			}
 			item.version = 6.6;
 		}
+		if (item.version < 6.7) {
+			await browser.storage.sync.remove("whitelistedHosts"); // Renamed in 6.2 but not removed
+			item.version = 6.7;
+		}
+		if (item.version < 6.8) {
+			for (level in item["custom_levels"]) {
+				let l = item["custom_levels"][level];
+				if (l.webworker === 2) {
+					let score = 0;
+					for (group of ["time_precision", "net", "geolocation", "physical_environment", "useridle", "coopschedule", "gamepads", "vr", "analytics", "nfc"]) {
+						if (l[group] !== undefined) {
+							score++;
+						}
+					}
+					for (group of ["htmlcanvaselement", "audiobuffer", "webgl", "hardware"]) {
+						if (l[group] === 1) {
+							score--;
+						}
+						else if (l[group] > 1) {
+							score++;
+						}
+					}
+					for (group of ["enumerateDevices", "plugins"]) {
+						if (l[group] === 1 || l[group] === 2) {
+							score--;
+						}
+						else if (l[group] > 2) {
+							score++;
+						}
+					}
+					if (score > 8) { // L0: 0, L1: 10, L2: 4, L3: 16
+						l.webworker = 3;
+					}
+				}
+			}
+			item.version = 6.8;
+		}
+		if (item.version < 7) {
+			for (level in item["custom_levels"]) {
+				let l = item["custom_levels"][level];
+				if (l.audiobuffer === 1 || l.htmlcanvaselement === 1) {
+					l.wasm = 1;
+				}
+			}
+			item.version = 7;
+		}
 
 
 
-		browser.storage.sync.set(item).then(() => {
-			// origin of update.js must be recognized (background script vs. options page)
-			if (typeof fpdLoadConfiguration === "function") {
-				fpdLoadConfiguration();
-			}
-			else {
-				browser.runtime.sendMessage({purpose: "fpd-load-config"});
-			}
-			if (typeof nbsLoadConfiguration === "function") {
-				nbsLoadConfiguration();
-			}
-			else {
-				browser.runtime.sendMessage({purpose: "nbs-load-config"})
-			}
-		});
-	});
+		await browser.storage.sync.set(item);
+		// origin of update.js must be recognized (background script vs. options page)
+		if (typeof fpdLoadConfiguration === "function") {
+			fpdLoadConfiguration();
+		}
+		else {
+			browser.runtime.sendMessage({purpose: "fpd-load-config"});
+		}
+		if (typeof nbsLoadConfiguration === "function") {
+			nbsLoadConfiguration();
+		}
+		else {
+			browser.runtime.sendMessage({purpose: "nbs-load-config"})
+		}
 }
 browser.runtime.onInstalled.addListener(installUpdate);
 // fallback - populate storage with valid data (if onInstalled won't fire)
 browser.storage.sync.get(null).then((item) => {
-	checkAndSaveConfig(item);
+	checkAndSaveConfig(item, false); // level might not be loaded by this time
 });
 
-async function checkAndSaveConfig(conf) {
+async function checkAndSaveConfig(conf, check_default = true) {
 	let checkSettingRange = (module, setting, range, defValue) => {
 		if (!(conf[module][setting] in range)) {
 			conf[module][setting] = defValue;
@@ -476,9 +520,10 @@ async function checkAndSaveConfig(conf) {
 	checkExistAndType("fpDetectionOn", "boolean", false);
 	checkExistAndType("custom_levels", "object", {});
 	if (!("__default__" in conf) || typeof(conf.__default__) !== "string" ||
-			(!(conf.__default__ in [0,1,2,3]) && !(conf.__default__ in conf.custom_levels))) {
+			(!(conf.__default__ in levels) && check_default)) {
 		conf.__default__ = "2";
 	}
+	checkExistAndType("domains", "object", {});
 	checkExistAndType("nbsWhitelist", "object", {});
 	checkExistAndType("nbsSettings", "object", {});
 	checkSettingRange("nbsSettings", "blocking", [0,1], 1);
@@ -489,5 +534,5 @@ async function checkAndSaveConfig(conf) {
 	checkSettingRange("fpdSettings", "notifications", [0,1], 1);
 	checkSettingRange("fpdSettings", "detection", [0,1], 0);
 	await browser.storage.sync.set(conf);
-	installUpdate();
+	await installUpdate();
 }

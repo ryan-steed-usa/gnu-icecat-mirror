@@ -4,6 +4,7 @@
  *  \author Copyright (C) 2019  Libor Polcak
  *  \author Copyright (C) 2021  Giorgio Maone
  *  \author Copyright (C) 2022  Marek Salon
+ *  \author Copyright (C) 2023  Martin Zmitko
  *
  *  \license SPDX-License-Identifier: GPL-3.0-or-later
  */
@@ -45,16 +46,12 @@ function enclose_wrapping2(code, name, params, call_with_window) {
  */
 function create_counter_call(wrapper, type) {
 	let {parent_object, parent_object_property} = wrapper;
-	let updateCount = `${parent_object}.${parent_object_property}`;
-	
-	if ("update_count" in wrapper) {
-		if (typeof wrapper.update_count === "string") updateCount = wrapper.update_count;
-	}
-	
-	return updateCount ? `if (fp_enabled && fp_${type}_count < 1000) {
-		updateCount(${JSON.stringify(updateCount)}, "${type}", args.map(x => JSON.stringify(x)));
+	let resource = `${parent_object}.${parent_object_property}`;
+	let args = wrapper.report_args ? "args.map(x => JSON.stringify(x))" : "[]"
+	return `if (fp_enabled && fp_${type}_count < 1000) {
+		updateCount(${JSON.stringify(resource)}, "${type}", ${args});
 		fp_${type}_count += 1;
-	}` : "";
+	}`;
 }
 
 /**
@@ -92,30 +89,35 @@ function define_page_context_function(wrapper) {
 	else {
 		code += `${wrapper.wrapping_function_body}`
 	}
-	
 	code += `
 	};
-	if (WrapHelper.XRAY) {
-		let innerF = replacementF;
-		replacementF = function(...args) {
+	`;
 
-			// prepare callbacks
-			args = args.map(a => typeof a === "function" ? WrapHelper.pageAPI(a) : a);
+	if (typeof browser_polyfill_used === "undefined") {
+		code += `
+			let innerF = replacementF;
+			replacementF = function(...args) {
 
-			let ret = WrapHelper.forPage(innerF.call(this, ...args));
-			if (ret) {
-				if (ret instanceof xrayWindow.Promise || ret instanceof WrapHelper.unX(xrayWindow).Promise) {
-					ret = Promise.resolve(ret);
+				// prepare callbacks
+				args = args.map(a => typeof a === "function" ? WrapHelper.pageAPI(a) : a);
+
+				let ret = WrapHelper.forPage(innerF.call(this, ...args));
+				if (ret) {
+					if (ret instanceof xrayWindow.Promise || ret instanceof WrapHelper.unX(xrayWindow).Promise) {
+						ret = Promise.resolve(ret);
+					}
+					try {
+						ret = WrapHelper.unX(ret);
+					} catch (e) {}
 				}
-				try {
-					ret = WrapHelper.unX(ret);
-				} catch (e) {}
-			}
-			return ret;
-		}
+				return ret;
+			};
+		`;
 	}
-	exportFunction(replacementF, ${parent_object}, {defineAs: '${parent_object_property}'});
-	${wrapper.post_replacement_code || ''}`
+	code += `
+		exportFunction(replacementF, ${parent_object}, {defineAs: '${parent_object_property}'});
+		${wrapper.post_replacement_code || ''}
+	`;
 	
 	return enclose_wrapping2(code, wrapper.wrapping_code_function_name, wrapper.wrapping_code_function_params, wrapper.wrapping_code_function_call_window);
 }
@@ -146,23 +148,7 @@ function generate_object_properties(code_spec_obj, fpd_only) {
 	}
 	code += `
 	{
-		let obj = ${code_spec_obj.parent_object};
-		let prop = "${code_spec_obj.parent_object_property}";
-		let descriptor = Object.getOwnPropertyDescriptor(obj, prop);
-		if (!descriptor) {
-			// let's traverse the prototype chain in search of this property
-			for (let proto = Object.getPrototypeOf(obj); proto; proto = Object.getPrototypeOf(obj)) {
-				if (descriptor = Object.getOwnPropertyDescriptor(proto, prop)) {
-					obj = WrapHelper.unX(obj);
-					break;
-				}
-			}
-			if (!descriptor) descriptor = {
-				// Originally not a descriptor, fallback
-				enumerable: true,
-				configurable: true,
-			};
-		}
+		let descriptor = WrapHelper.getDescriptor(${code_spec_obj.parent_object}, "${code_spec_obj.parent_object_property}");
 	`
 	for (let wrap_spec of code_spec_obj.wrapped_properties) {
 		// variable name used for distinguishing between different original properties of the same wrapper
@@ -329,11 +315,13 @@ var build_code = function(wrapper, ...args) {
 			Object.setPrototypeOf(${target}, ${source});
 		}`;
 	}
-	code += `
-		if (${wrapper.freeze}) {
-			Object.freeze(${wrapper.parent_object}.${wrapper.parent_object_property});
-		}
-	`;
+	if (wrapper.freeze !== undefined) {
+		code += `
+			if (${wrapper.freeze}) {
+				Object.freeze(${wrapper.parent_object}.${wrapper.parent_object_property});
+			}
+		`;
+	}
 
 	return enclose_wrapping(code, ...args);
 };
@@ -364,6 +352,80 @@ function wrap_code(wrappers) {
  */
 let joinWrappingCode = code => {
 	return code.join("\n").replace(/\bObject\.(create|definePropert)/g, "WrapHelper.$1");
+}
+
+/**
+ * Insert WebAssembly initialization code into wrapped injection code.
+ */
+function insert_wasm_code(code) {
+	let wasm_code = (() => {
+		const wasm_memory = new WebAssembly.Memory({initial: 1});
+		// Memory layout:
+		// +-----------------+--------------+----------+---------------------------------------- - -
+		// | CRC table       | Xoring table | Reserved | Data
+		// | 256 * u16       | 8 * u32      |          | 
+		// +-----------------+--------------+----------+---------------------------------------- - -
+		// 0                 512            544        1024
+		const crc_offset = 0;
+		const xoring_offset = 512;
+		const reserved_offset = 544;
+		const data_offset = 1024;
+
+		WebAssembly.instantiateStreaming(fetch("/* WASM_URL */"), {env: {memory: wasm_memory}}).then(result => {
+			new Uint16Array(wasm_memory.buffer, crc_offset, crc16_table.length).set(crc16_table);
+			const xoring = new Uint32Array(wasm_memory.buffer, xoring_offset, 8);
+			for (let i = 0; i < 64; i += 8) {
+				xoring[i / 8] = parseInt(domainHash.slice(i, i + 8), 16) >>> 0;
+			}
+
+			wasm = {
+				// Getter and setter for data in WASM memory. Because we need access from page context,
+				// we can't just get a memory view and use it directly. The view needs to be exported to be
+				// usable in the page context on Firefox.
+				// This means that views returned by wasm.get() aren't actually views of the WASM memory,
+				// but rather copies of the data and modifying them won't affect the underlying memory.
+				// We can't export the wasm memory directly either, it is bound to the WASM instance and
+				// it's not possible to export the instance as well.
+				// For constructing views of the correct type, we can't use constructors passed from page context,
+				// a content script constructor must be used. For now, we use just 2 types, so passing a bool 
+				// to differentiate is enough.
+				get(length, offset = 0, float = false) {
+					if (float) {
+						return WrapHelper.forPage(new Float32Array(wasm_memory.buffer, data_offset + offset, length));
+					} else {
+						return WrapHelper.forPage(new Uint8Array(wasm_memory.buffer, data_offset + offset, length));
+					}
+				},
+				set(data, offset = 0, float = false) {
+					if (float) {
+						new Float32Array(wasm_memory.buffer, data_offset + offset, data.length).set(data);
+					} else {
+						new Uint8Array(wasm_memory.buffer, data_offset + offset, data.length).set(data);
+					}
+				},
+				// Grow the WASM memory if needed.
+				grow(needed_bytes) {
+					const memory_size = wasm_memory.buffer.byteLength;
+					needed_bytes += data_offset;
+					if (memory_size < needed_bytes) {
+						try {
+							wasm_memory.grow(Math.ceil((needed_bytes - memory_size) / 65536));
+						} catch (e) {
+							return false;
+						}
+					}
+					return true;
+				},
+				// Make WASM exported functions available to wrappers.
+				...result.instance.exports,
+				ready: true
+			}
+			Object.freeze(wasm);
+		}).catch(e => {
+		});
+	}).toString().replace("/* WASM_URL */", browser.runtime.getURL("farble.wasm"));
+
+	return code.replace("// WASM_CODE //", `(${wasm_code})()`);
 }
 
 /**
@@ -619,6 +681,24 @@ function generate_code(wrapped_code) {
 					}
 					return descriptors ? this.defineProperties(obj, descriptors) && obj : obj;
 				},
+				getDescriptor(obj, prop) {
+					let descriptor = Object.getOwnPropertyDescriptor(obj, prop);
+					if (!descriptor) {
+						// let's traverse the prototype chain in search of this property
+						for (let proto = Object.getPrototypeOf(obj); proto; proto = Object.getPrototypeOf(obj)) {
+							if (descriptor = Object.getOwnPropertyDescriptor(proto, prop)) {
+								obj = unX(obj);
+								break;
+							}
+						}
+						if (!descriptor) descriptor = {
+							// Originally not a descriptor, fallback
+							enumerable: true,
+							configurable: true,
+						};
+					}
+					return descriptor;
+				},
 
 				// WrapHelper.overlay(obj, data)
 				// Proxies the prototype of the obj object in order to return the properties of the data object
@@ -639,6 +719,12 @@ function generate_code(wrapped_code) {
 			};
 			Object.freeze(WrapHelper);
 		}
+
+		// The object available to wrappers later containing farbling WASM optmitimized functions if enabled
+		let wasm = Object.freeze({ready: false});
+
+		// Farbling WebAssembly module initialization placeholder
+		// WASM_CODE //
 
 		with(unwrappedWindow) {
 			let window = unwrappedWindow;

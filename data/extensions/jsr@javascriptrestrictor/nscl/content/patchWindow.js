@@ -1,7 +1,7 @@
 /*
  * NoScript Commons Library
  * Reusable building blocks for cross-browser security/privacy WebExtensions.
- * Copyright (C) 2020-2021 Giorgio Maone <https://maone.net>
+ * Copyright (C) 2020-2023 Giorgio Maone <https://maone.net>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -205,15 +205,36 @@ function patchWindow(patchingCallback, env = {}) {
 
   env.port = new Port("page", "extension");
 
-  function getSafeMethod(obj, method) {
-    return isDeadTarget(obj, method) ? xray.wrap(obj)[method] : obj[method];
-  }
+  const {xrayEnabled} = patchWindow;
+  const zombieDanger = xrayEnabled && document.readyState === "complete";
+  const isZombieException = e => e.message.includes("dead object");
 
-  function getSafeDescriptor(proto, prop, accessor) {
-    let des = Object.getOwnPropertyDescriptor(proto, prop);
-    return isDeadTarget(des, accessor) ?
-      Object.getOwnPropertyDescriptor(xray.wrap(proto), prop)
-      : des;
+  const getSafeMethod = zombieDanger
+  ? (obj, method, wrappedObj) => {
+    let actualTarget = obj[method];
+    return XPCNativeWrapper.unwrap(new window.Proxy(actualTarget, cloneInto({
+      apply(targetFunc, thisArg, args) {
+        try {
+          return actualTarget.apply(thisArg, args);
+        } catch (e) {
+          if (isZombieException(e)) {
+            return (actualTarget = (wrappedObj || XPCNativeWrapper(obj))[method]).apply(thisArg, args);
+          }
+          throw e;
+        }
+      },
+    }, window, {cloneFunctions: true, wrapReflectors: true}
+    )));
+
+  } : (obj, method) => obj[method];
+
+  const getSafeDescriptor = (proto, prop, accessor) => {
+    const des = Reflect.getOwnPropertyDescriptor(proto, prop);
+    if (zombieDanger) {
+      const wrappedDescriptor =  Reflect.getOwnPropertyDescriptor(xray.wrap(proto), prop);
+      des[accessor] = getSafeMethod(des, accessor, wrappedDescriptor);
+    }
+    return des;
   }
 
   let xrayMake = (enabled, wrap, unwrap = wrap, forPage = wrap) => ({
@@ -221,25 +242,12 @@ function patchWindow(patchingCallback, env = {}) {
       getSafeMethod, getSafeDescriptor
     });
 
-  let xray = typeof XPCNativeWrapper === "undefined"
+  let xray = !xrayEnabled
     ? xrayMake(false, o => o)
     : xrayMake(true, o => XPCNativeWrapper(o), o => XPCNativeWrapper.unwrap(o),
       function(obj, win = this.window || window) {
         return cloneInto(obj, win, {cloneFunctions: true, wrapReflectors: true});
       });
-
-  var isDeadTarget = xray.enabled && document.readyState === "complete" ?
-    (obj, method) => {
-      // We may be repatching this already loaded window during an extension update:
-      // beware of dead object from killed obsolete content script!
-      try {
-        obj[method].apply(null);
-      } catch (e) {
-        return e.message.includes("dead object");
-      }
-      return false;
-    }
-  : () => false;
 
   const patchedWindows = new WeakSet(); // track them to avoid indirect recursion
 
@@ -282,6 +290,7 @@ function patchWindow(patchingCallback, env = {}) {
     }
     // auto-trigger window patching whenever new elements are added to the DOM
     let patchAll = () => {
+      const win = xray.unwrap(window);
       for (let j = 0; j in win; j++) {
         try {
           modifyWindow(win[j]);
@@ -341,8 +350,8 @@ function patchWindow(patchingCallback, env = {}) {
         }
       }
       let des = getSafeDescriptor(proto, method, accessor);
-      des[accessor] = new Proxy(des[accessor], patchHandler);
-      win.Object.defineProperty(proto, method, xray.forPage(des, win));
+      des[accessor] = exportFunction(new Proxy(des[accessor], patchHandler), proto, {defineAs: `${accessor} ${method}`});;
+      Reflect.defineProperty(xray.unwrap(proto), method, des);
     }
 
     for (let [obj, methods] of Object.entries(domChangers)) {
@@ -371,14 +380,15 @@ function patchWindow(patchingCallback, env = {}) {
     };
 
     descriptor.get = exportFunction(replacements[property], proto, {defineAs: `get ${property}`});
-    Object.defineProperty(proto, property, descriptor);
+    Reflect.defineProperty(proto, property, descriptor);
   }
 
   modifyWindow(window);
   return port;
 }
 
-if (typeof XPCNativeWrapper !== "undefined") {
+patchWindow.xrayEnabled = typeof XPCNativeWrapper !== "undefined";
+if (patchWindow.xrayEnabled) {
   // make up for object element initialization inconsistencies on Firefox
   let callbacks = new Set();
   patchWindow.onObject = {
