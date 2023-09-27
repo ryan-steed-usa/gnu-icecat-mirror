@@ -595,10 +595,17 @@ browser.webRequest.onBeforeRequest.addListener(
       redirect = {
         redirectUrl: redirectTwitter(url, initiator),
       };
-    } else if (instagramDomains.includes(url.host)) {
-      redirect = {
-        redirectUrl: redirectInstagram(url, initiator, details.type),
-      };
+//
+// Bibliogram has been discontinued.
+// See <https://cadence.moe/blog/2022-09-01-discontinuing-bibliogram>
+// We'll keep this code in case the project is resurrected, but for
+// now we disable Bibliogram redirects and hide the associated UI.
+//
+//  } else if (instagramDomains.includes(url.host)) {
+//    redirect = {
+//      redirectUrl: redirectInstagram(url, initiator, details.type),
+//    };
+//
     } else if (url.href.match(googleMapsRegex)) {
       redirect = {
         redirectUrl: redirectGoogleMaps(url, initiator),

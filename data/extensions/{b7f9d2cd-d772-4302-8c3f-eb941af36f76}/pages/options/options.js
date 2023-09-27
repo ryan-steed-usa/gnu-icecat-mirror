@@ -21,7 +21,7 @@ const wikipediaInstances = wikipediaHelper.redirects;
 const autocompletes = [
   { id: "nitter-instance", instances: nitterInstances },
   { id: "invidious-instance", instances: invidiousInstances },
-  { id: "bibliogram-instance", instances: bibliogramInstances },
+//  { id: "bibliogram-instance", instances: bibliogramInstances },
   { id: "osm-instance", instances: osmInstances },
   { id: "reddit-instance", instances: redditInstances },
   {
@@ -35,7 +35,7 @@ const domparser = new DOMParser();
 
 let nitterInstance = document.getElementById("nitter-instance");
 let invidiousInstance = document.getElementById("invidious-instance");
-let bibliogramInstance = document.getElementById("bibliogram-instance");
+// let bibliogramInstance = document.getElementById("bibliogram-instance");
 let osmInstance = document.getElementById("osm-instance");
 let redditInstance = document.getElementById("reddit-instance");
 let searchEngineInstance = document.getElementById("search-engine-instance");
@@ -45,7 +45,7 @@ let simplyTranslateInstance = document.getElementById(
 let wikipediaInstance = document.getElementById("wikipedia-instance");
 let disableNitter = document.getElementById("disable-nitter");
 let disableInvidious = document.getElementById("disable-invidious");
-let disableBibliogram = document.getElementById("disable-bibliogram");
+// let disableBibliogram = document.getElementById("disable-bibliogram");
 let disableOsm = document.getElementById("disable-osm");
 let disableReddit = document.getElementById("disable-reddit");
 let disableSearchEngine = document.getElementById("disable-search-engine");
@@ -67,7 +67,7 @@ let theme = document.getElementById("theme");
 let useFreeTube = document.getElementById("use-freetube");
 let nitterRandomPool = document.getElementById("nitter-random-pool");
 let invidiousRandomPool = document.getElementById("invidious-random-pool");
-let bibliogramRandomPool = document.getElementById("bibliogram-random-pool");
+// let bibliogramRandomPool = document.getElementById("bibliogram-random-pool");
 let exceptions;
 
 window.browser = window.browser || window.chrome;
@@ -136,7 +136,7 @@ browser.storage.sync.get(
     if (result.theme) document.body.classList.add(result.theme);
     nitterInstance.value = result.nitterInstance || "";
     invidiousInstance.value = result.invidiousInstance || "";
-    bibliogramInstance.value = result.bibliogramInstance || "";
+//    bibliogramInstance.value = result.bibliogramInstance || "";
     osmInstance.value = result.osmInstance || "";
     redditInstance.value = result.redditInstance || "";
     searchEngineInstance.value =
@@ -145,7 +145,7 @@ browser.storage.sync.get(
     wikipediaInstance.value = result.wikipediaInstance || "";
     disableNitter.checked = !result.disableNitter;
     disableInvidious.checked = !result.disableInvidious;
-    disableBibliogram.checked = !result.disableBibliogram;
+//    disableBibliogram.checked = !result.disableBibliogram;
     disableOsm.checked = !result.disableOsm;
     disableReddit.checked = !result.disableReddit;
     disableSearchEngine.checked = !result.disableSearchEngine;
@@ -172,9 +172,9 @@ browser.storage.sync.get(
     invidiousRandomPool.value =
       result.invidiousRandomPool ||
       commonHelper.filterInstances(invidiousInstances);
-    bibliogramRandomPool.value =
-      result.bibliogramRandomPool ||
-      commonHelper.filterInstances(bibliogramInstances);
+//    bibliogramRandomPool.value =
+//      result.bibliogramRandomPool ||
+//      commonHelper.filterInstances(bibliogramInstances);
   }
 );
 
@@ -284,14 +284,14 @@ const invidiousInstanceChange = debounce(() => {
 }, 500);
 invidiousInstance.addEventListener("input", invidiousInstanceChange);
 
-const bibliogramInstanceChange = debounce(() => {
-  if (bibliogramInstance.checkValidity()) {
-    browser.storage.sync.set({
-      bibliogramInstance: parseURL(bibliogramInstance.value),
-    });
-  }
-}, 500);
-bibliogramInstance.addEventListener("input", bibliogramInstanceChange);
+// const bibliogramInstanceChange = debounce(() => {
+//   if (bibliogramInstance.checkValidity()) {
+//     browser.storage.sync.set({
+//       bibliogramInstance: parseURL(bibliogramInstance.value),
+//     });
+//   }
+// }, 500);
+// bibliogramInstance.addEventListener("input", bibliogramInstanceChange);
 
 const osmInstanceChange = debounce(() => {
   if (osmInstance.checkValidity()) {
@@ -357,9 +357,9 @@ disableInvidious.addEventListener("change", (event) => {
   browser.storage.sync.set({ disableInvidious: !event.target.checked });
 });
 
-disableBibliogram.addEventListener("change", (event) => {
-  browser.storage.sync.set({ disableBibliogram: !event.target.checked });
-});
+// disableBibliogram.addEventListener("change", (event) => {
+//   browser.storage.sync.set({ disableBibliogram: !event.target.checked });
+// });
 
 disableOsm.addEventListener("change", (event) => {
   browser.storage.sync.set({ disableOsm: !event.target.checked });
@@ -447,12 +447,12 @@ const invidiousRandomPoolChange = debounce(() => {
 }, 500);
 invidiousRandomPool.addEventListener("input", invidiousRandomPoolChange);
 
-const bibliogramRandomPoolChange = debounce(() => {
-  browser.storage.sync.set({
-    bibliogramRandomPool: bibliogramRandomPool.value,
-  });
-}, 500);
-bibliogramRandomPool.addEventListener("input", bibliogramRandomPoolChange);
+// const bibliogramRandomPoolChange = debounce(() => {
+//   browser.storage.sync.set({
+//     bibliogramRandomPool: bibliogramRandomPool.value,
+//   });
+// }, 500);
+// bibliogramRandomPool.addEventListener("input", bibliogramRandomPoolChange);
 
 theme.addEventListener("change", (event) => {
   const value = event.target.options[theme.selectedIndex].value;
