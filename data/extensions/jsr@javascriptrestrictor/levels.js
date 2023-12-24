@@ -817,7 +817,7 @@ var level_2 = {
 	"enumerateDevices": 2,
 	"hardware": 1,
 	"net": 1,
-	"webworker": 2,
+	"webworker": 3,
 	"geolocation": 3,
   "physical_environment": 1,
 	"useridle": 2,
@@ -911,6 +911,7 @@ init_levels();
 let levels_initialised = false; // Initialized in updateLevels()
 let fp_levels_initialised = false; // Initialized in fp_levels.js/loadFpdConfig()
 let levels_updated_callbacks = [];
+var tweak_domains = tweak_domains || {};
 function updateLevels(res) {
 	init_levels();
 	custom_levels = res["custom_levels"] || {};
@@ -929,8 +930,13 @@ function updateLevels(res) {
 		default_level = Object.assign({}, levels[new_default_level]);
 	}
 	default_level.is_default = true;
-	var new_domains = res["domains"] || {};
-	for (let [d, {level_id, tweaks, restore, restore_tweaks}] of Object.entries(new_domains)) {
+	var redefined_domains = res["domains"] || {};
+	for (let [d, settings] of Object.entries(tweak_domains)) {
+		if ((default_level.level_id in settings.level_id) && !(d in redefined_domains)) {
+			redefined_domains[d] = {level_id: default_level.level_id, tweaks: settings.tweaks};
+		}
+	}
+	for (let [d, {level_id, tweaks, restore, restore_tweaks}] of Object.entries(redefined_domains)) {
 		let level = levels[level_id];
 		if (level === undefined) {
 			domains[d] = default_level;
@@ -977,6 +983,9 @@ function saveDomainLevels() {
 		if (k[k.length - 1] === ".") {
 			k = k.substring(0, k.length-1);
 		}
+		// Tweaks not contain the new value defined by the user. However, that might
+		// be the value of the level. Remove such tweaks as they to not change the
+		// level of protection
 		if (tweaks) {
 			for (let [group, param] of Object.entries(tweaks)) {
 				if (param === (levels[level_id][group] || 0)) {
@@ -985,6 +994,27 @@ function saveDomainLevels() {
 			}
 			if (Object.keys(tweaks).length === 0) {
 				tweaks = undefined;
+			}
+			// Do not save built-in tweaks as they are automatically added in updateLevels
+			if (k in tweak_domains) {
+				// Skip further check if the user has a different default_level
+				if (default_level.level_id in tweak_domains[k].level_id) {
+					tdb_tweaks = Object.entries(tweak_domains[k].tweaks);
+					current_tweaks = Object.entries(tweaks || {});
+					if (tdb_tweaks.length === current_tweaks.length) {
+						var equal = true;
+						for ([name, val] of tdb_tweaks) {
+							if (tweaks[name] !== val) {
+								equal = false;
+								break;
+							}
+						}
+						if (equal) {
+							// This entry should not be saved
+							continue;
+						}
+					}
+				}
 			}
 		}
 		tobesaved[k] = tweaks ? {level_id, tweaks} : {level_id};

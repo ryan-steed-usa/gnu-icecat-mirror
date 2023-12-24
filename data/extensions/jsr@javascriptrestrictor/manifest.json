@@ -1,5 +1,5 @@
 {
-  "author": "Libor Pol\u010d\u00e1k, Martin Bedn\u00e1\u0159, Martin Timko, Pavel Pohner, Peter Hor\u0148\u00e1k, Mat\u00fa\u0161 \u0160vanc\u00e1r, Giorgio Maone, Marek Salo\u0148, Radek Hranick\u00fd, Martin Zmitko",
+  "author": "Libor Pol\u010d\u00e1k, Giorgio Maone, Martin Timko, Pavel Pohner, Peter Hor\u0148\u00e1k, Mat\u00fa\u0161 \u0160vanc\u00e1r, Marek Salo\u0148, Martin Bedn\u00e1\u0159, Radek Hranick\u00fd, Martin Zmitko",
   "background": {
     "scripts": [
       "nscl/lib/browser-polyfill.js",
@@ -16,6 +16,7 @@
       "update.js",
       "url.js",
       "levels_browser.js",
+      "settings_tweaks.js",
       "levels.js",
       "fp_levels.js",
       "fp_detect_background.js",
@@ -133,11 +134,12 @@
     "browsingData"
   ],
   "short_name": "JShelter",
-  "version": "0.15.2",
+  "version": "0.17",
   "browser_specific_settings": {
     "gecko": {
       "id": "jsr@javascriptrestrictor",
-      "strict_min_version": "68.0"
-    }
+      "strict_min_version": "78.0a1"
+    },
+    "gecko_android": {}
   }
 }

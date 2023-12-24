@@ -143,7 +143,7 @@ section.content section#configuration_area #tweaks div.more, section.content div
 	padding: 0.5em;
 }
 
-.undo, .alert{
+.undo {
 	background-color: var(--attention-background);
 	color: var(--attention-color);
 	font-weight: bold;
@@ -231,8 +231,8 @@ fieldset {
 	display: none;
 }
 
-#current-level-tweaks input[type=range] {
-	pointer-events:none; /* https://developer.mozilla.org/en-US/docs/Web/CSS/pointer-events */
+#current-level-tweaks input[type=range], #builtin-jss-tweaks input[type=range] {
+	pointer-events:none; /* do not allow modifications, https://developer.mozilla.org/en-US/docs/Web/CSS/pointer-events */
 }
 
 .protection-title {
@@ -258,4 +258,19 @@ fieldset {
 
 form {
 	margin: 2em;
+}
+
+#builtin-jss-tweaks {
+	display: grid;
+	grid-template-columns: auto auto auto auto;
+	column-gap: 3em;
+	row-gap: 3ex;
+}
+
+#builtin-jss-tweaks span {
+	text-align: left;
+}
+
+#builtin-jss-tweaks .tweak_domain {
+	color: var(--title-color);
 }
