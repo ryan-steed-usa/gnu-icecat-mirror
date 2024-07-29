@@ -5,6 +5,7 @@
   */
 const targets = [
   "x.com",
+  "mobile.x.com",
   "twitter.com",
   "www.twitter.com",
   "mobile.twitter.com",

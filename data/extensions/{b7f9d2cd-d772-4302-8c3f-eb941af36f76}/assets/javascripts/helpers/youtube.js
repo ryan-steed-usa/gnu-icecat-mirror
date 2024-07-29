@@ -8,6 +8,7 @@ const targets = [
   "youtu.be",
   "s.ytimg.com",
   "music.youtube.com",
+  "piped.video",
 ];
 /*
     Please remember to also update the manifest.json file
