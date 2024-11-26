@@ -48,22 +48,10 @@
     },
     {
       "matches": [
-        "*://yewtu.be/*",
-        "*://yt.artemislena.eu/*",
-        "*://invidious.flokinet.to/*",
-        "*://invidious.privacydev.net/*",
-        "*://iv.melmac.space/*",
         "*://inv.nadeko.net/*",
-        "*://inv.tux.pizza/*",
-        "*://invidious.protokolla.fi/*",
-        "*://yt.drgnz.club/*",
-        "*://inv.us.projectsegfau.lt/*",
-        "*://invidious.jing.rocks/*",
-        "*://invidious.reallyaweso.me/*",
-        "*://invidious.materialio.us/*",
-        "*://ng27owmagn5amdm7l5s3rsqxwscl5ynppnis5dqcasogkyxcfqn7psid.onion/*",
-        "*://invidious.g4c3eya4clenolymqbpgwz3q3tawoxw56yhzk4vugqrl6dtu3ejvhjid.onion/*",
-        "*://inv.nadekonw7plitnjuawu6ytjsl7jlglk2t6pyq6eftptmiv3dvqndwvyd.onion/*"
+        "*://invidious.privacydev.net/*",
+        "*://invidious.nerdvpn.de/*",
+        "*://invidious.g4c3eya4clenolymqbpgwz3q3tawoxw56yhzk4vugqrl6dtu3ejvhjid.onion/*"
       ],
       "js": [
         "assets/javascripts/persist-invidious-prefs.js"
