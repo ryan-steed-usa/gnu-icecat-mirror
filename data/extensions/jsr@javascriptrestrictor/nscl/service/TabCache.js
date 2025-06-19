@@ -1,7 +1,7 @@
 /*
  * NoScript Commons Library
  * Reusable building blocks for cross-browser security/privacy WebExtensions.
- * Copyright (C) 2020-2023 Giorgio Maone <https://maone.net>
+ * Copyright (C) 2020-2024 Giorgio Maone <https://maone.net>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -20,7 +20,7 @@
 
 var TabCache = (() => {
 
-  let cache = new Map();
+  const cache = new Map();
 
   browser.tabs.onUpdated.addListener((tabId, changes, tab) => {
     cache.set(tabId, tab);
@@ -30,15 +30,17 @@ var TabCache = (() => {
     cache.delete(tabId);
   });
 
-  (async () => {
-    for (let tab of await browser.tabs.query({})) {
-      cache.set(tab.id, tab);
-    }
-  })();
-
   return {
+    wakening: (async () => {
+      for (let tab of await browser.tabs.query({})) {
+        cache.set(tab.id, tab);
+      }
+    })(),
     get(tabId) {
       return cache.get(tabId);
+    },
+    async async(tabId) {
+      return cache.get(tabId) || await browser.tabs.get(tabId);
     }
   };
 })();

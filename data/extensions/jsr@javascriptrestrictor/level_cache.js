@@ -30,7 +30,8 @@
  */
 function getContentConfiguration(url, frameId, tabId) {
 	return new Promise(resolve => {
-		function resolve_promise() {
+		async function resolve_promise() {
+			await updateUserScripts();
 			let level = getCurrentLevelJSON(url);
 			if (level.is_default && frameId !== 0) {
 				/**
@@ -58,14 +59,16 @@ function getContentConfiguration(url, frameId, tabId) {
 				 * gets the user-defined settings for domain B but the iframe from domain C
 				 * is set with the level of domain A.
 				 */
-				level = getCurrentLevelJSON(TabCache.get(tabId).url);
+				level = getCurrentLevelJSON((await TabCache.async(tabId)).url);
 			}
-			let {domainHash} = Hashes.getFor(url);
+			let {domainHash, incognitoHash} = await Hashes.getFor(url);
 			resolve({
 				currentLevel: level,
 				fpdWrappers: isFpdOn(tabId) ? fp_levels.page_wrappers[fpdSettings.detection] : [],
 				fpdTrackCallers: fpd_track_callers_tab === tabId,
-				domainHash
+				domainHash,
+				incognitoHash,
+				portId: wrappersPortId,
 			});
 		}
 		if (levels_initialised && fp_levels_initialised) {
@@ -85,12 +88,16 @@ function getContentConfiguration(url, frameId, tabId) {
  * Returns the promise with the message returned to the content script.
  */
 function contentScriptLevelSetter(message, {frameId, tab}) {
+	if (!tab) {
+		// privileged source, bail out
+		return;
+	}
 	switch (message.message) {
 	  case "get wrapping for URL":
 			return getContentConfiguration(message.url, frameId, tab.id)
 	}
 }
-browser.runtime.onSyncMessage.addListener(contentScriptLevelSetter);
+browser.runtime.onSyncMessage?.addListener(contentScriptLevelSetter);
 
 
 /**
@@ -102,10 +109,19 @@ browser.runtime.onSyncMessage.addListener(contentScriptLevelSetter);
 
 DocStartInjection.register(async ({url, frameId, tabId}) => {
 	let configuration = await getContentConfiguration(url, frameId, tabId);
-	return `
+	if (browser.tabs.executeScript) {
+		// mv2
+		return `
 		window.configuration = ${JSON.stringify(configuration)};
 		if (typeof configureInjection === "function") configureInjection(configuration);
 		`;
+	}
+
+	return {
+		callback: "configureInjection",
+		assign: "configuration",
+		data: configuration,
+	};
 });
 
 /**
@@ -123,6 +139,17 @@ NavCache.onUrlChanged.addListener(({tabId, frameId, previousUrl, url}) => {
 	(async () => {
 		let configuration = await getContentConfiguration(url, frameId, tabId);
 		if (configuration.currentLevel.windowname) {
+			if (!browser.tabs.executeScript && browser.scripting) {
+				browser.scripting.executeScript({
+					func: () => { window.name = ""; },
+					injectImmediately: true,
+					target: {
+						frameIds: [frameId],
+						tabId
+					}
+				});
+				return;
+			}
 			browser.tabs.executeScript(tabId, {
 				code: `window.name = "";`,
 				frameId,

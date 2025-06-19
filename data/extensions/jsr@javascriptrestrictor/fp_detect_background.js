@@ -49,20 +49,31 @@
  * \ingroup FPD
  */
 
+
+// START persistent configuration data
+
 /**
  * FPD enable flag. Evaluate only when active.
  */
 var fpDetectionOn;
 
 /**
- * Associtive array of hosts, that are currently among trusted ones.
+ * Associative array of hosts, that are currently among trusted ones.
  */
 var fpdWhitelist = {};
 
 /**
- * Associtive array of settings supported by this module.
+ * Associative array of settings supported by this module.
  */
 var fpdSettings = {};
+
+// END persistent configuration data
+
+
+/**
+ *  Array containing names of unsupported wrappers that should be treated like supported ones during groups evaluation.
+ */
+const exceptionWrappers = ["CSSStyleDeclaration.prototype.fontFamily"];
 
 /**
  * API logs database of following structure:
@@ -80,41 +91,49 @@ var fpdSettings = {};
  *	*values in quotations are substituted by concrete names				
  *
  */
-var fpDb = new Observable();
+var fpdObservable = new Observable();
+
+// depends on /nscl/common/CachedStorage.js
+// session-bound globals
+var fpdGlobals = CachedStorage.init({
+
+	fpDb: {},
+
+/**
+ *  Contains information about tabs current state.
+ */
+	availableTabs: {},
+
+	/**
+	 * Store if the user was already notified about fingerprinting activity in the tab.
+	 */
+	stopNotifyFlag: {},
+
+/**
+ * A global variable shared with level_cache that controls the collection of calling scripts for FPD
+ * report.
+ */
+	fpd_track_callers_tab: null,
+
+});
 
 /**
  *  Stores latest evaluation statistics for every examined tab. This statistics contains data about accessed groups and resources
  *  and their weights after evaluation. It can be used for debugging or as an informative statement in GUI.
  * 	It also contains flag for every tab to limit number of notifications.
  */
-var latestEvals = {};
+let latestEvals = {};
 
 /**
  *  Parsed groups object containing necessary group information needed for evaluation.
  * 	Groups are indexed by level and name for easier and faster access.
  */
-var fpGroups = {};
+let fpGroups = {};
 
 /**
  *  Object containing information about unsupported wrappers for given browser.
  */
-var unsupportedWrappers = {};
-
-/**
- *  Array containing names of unsupported wrappers that should be treated like supported ones during groups evaluation.
- */
-var exceptionWrappers = ["CSSStyleDeclaration.prototype.fontFamily"];
-
-/**
- *  Contains information about tabs current state.
- */
-var availableTabs = {};
-
-/**
- * A global variable shared with level_cache that controls the collection of calling scripts for FPD
- * report.
- */
-var fpd_track_callers_tab = undefined;
+let unsupportedWrappers = {};
 
 /**
 * Definition of settings supported by this module.
@@ -199,18 +218,20 @@ const FPD_DEF_SETTINGS = {
 	}
 };
 
+
+var actionApi = browser.browserAction || browser.action;
 // unify default color of popup badge background between different browsers
-browser.browserAction.setBadgeBackgroundColor({color: "#6E7378"});
+actionApi.setBadgeBackgroundColor({color: "#6E7378"});
 
 // unify default color of popup badge text between different browsers
-if (typeof browser.browserAction.setBadgeTextColor === "function") {
-	browser.browserAction.setBadgeTextColor({color: "#FFFFFF"});
+if (typeof actionApi.setBadgeTextColor === "function") {
+	actionApi.setBadgeTextColor({color: "#FFFFFF"});
 }
 
 /**
  * This function initializes FPD module, loads configuration from storage, and registers listeners needed for fingerprinting detection.
  */
-function initFpd() {
+async function initFpd() {
 	// fill up fpGroups object with necessary data for evaluation
 	for (let groupsLevel in fp_levels.groups) {
 		fpGroups[groupsLevel] = fpGroups[groupsLevel] || {};
@@ -222,8 +243,9 @@ function initFpd() {
 		}
 	}
 
-	// load configuration and settings from storage 
-	fpdLoadConfiguration();
+	// load configuration and settings from storage
+	await fpdLoadConfiguration();
+	await fpdGlobals;
 
 	// take care of unsupported resources for cross-browser behaviour uniformity
 	balanceUnsupportedWrappers();
@@ -261,16 +283,26 @@ function initFpd() {
 		browser.storage.sync.set({"fpdSettings": fpdSettings});
 	});
 
-	// listen for requests through webRequest API and decide whether to block them
-	browser.webRequest.onBeforeRequest.addListener(
-		fpdRequestCancel,
-		{urls: ["<all_urls>"]},
-		["blocking"]
-	);
-
+	if (self.window) {
+		// Firefox, event page has window
+		// listen for requests through webRequest API and decide whether to block them
+		browser.webRequest.onBeforeRequest.addListener(
+			fpdRequestCancel,
+			{urls: ["<all_urls>"]},
+			["blocking"]
+		);
+	} else {
+		// mv3: cannot block!
+		// hide behavior settings
+		// TODO: shame Google in the setting panels for the missing feature
+		delete FPD_DEF_SETTINGS["behavior"];
+		// force passive behavior setting
+		fpdSettings.behavior = 0;
+		browser.storage.sync.set({"fpdSettings": fpdSettings});
+	}
 	// listen for navigation events to initiate storage clearing of fingerprinting web pages
 	browser.webNavigation.onBeforeNavigate.addListener((details) => {
-		if (latestEvals[details.tabId] && latestEvals[details.tabId].stopNotifyFlag && fpdSettings.behavior > 0) {
+		if (latestEvals[details.tabId] && stopNotifyFlag[details.tabId] && fpdSettings.behavior > 0) {
 			// clear storages (using content script) for every frame in this tab
 			if (details.tabId >= 0) {
 				browser.tabs.sendMessage(details.tabId, {
@@ -285,7 +317,7 @@ function initFpd() {
 	browser.tabs.query({}).then(function(results) {
 		results.forEach(function(tab) {
 			availableTabs[tab.id] = tab;
-			fpDb[tab.id] = {};
+			fpDb[tab.id] ||= {};
 			periodicEvaluation(tab.id, 500);
 		});
 	});
@@ -302,6 +334,7 @@ function initFpd() {
  * It checks which resources are unsupported for given browser and adjust criteria of loaded FPD configuration accordingly.
  */
 function balanceUnsupportedWrappers() {
+	if (!self.window) return false; // mv3 service worker?
 	// object containing groups effected by criteria adjustment and corresponding deleted subgroups
 	var effectedGroups = {};
 
@@ -625,7 +658,7 @@ function evaluateGroupsCriteria(rootGroup, level, tabId) {
  * 		type (Type of resource - call/get/set)
  * 		accesses (Number of accesses to specified resource)
  */
-function evaluateResourcesCriteria(resource, groupName, level, tabId) {	
+function evaluateResourcesCriteria(resource, groupName, level, tabId) {
 	// all result objects for given resource (set/get/call)
 	var scores = [];
 
@@ -633,7 +666,7 @@ function evaluateResourcesCriteria(resource, groupName, level, tabId) {
 	var resourceObj = fp_levels.wrappers[level].filter((x) => (x.resource == resource))[0];
 	var groupsArray = resourceObj.groups.filter((x) => (x.group == groupName));
 
-	// evaluate every retrieved group object 
+	// evaluate every retrieved group object
 	for (let groupObj of groupsArray) {
 		// initialize new result object
 		var res = {}
@@ -737,8 +770,10 @@ function evaluateResourcesCriteria(resource, groupName, level, tabId) {
  * \param message Receives full message.
  * \param sender Sender of the message.
  */
-function fpdCommonMessageListener(record, sender) {
-	if (record) {
+async function fpdCommonMessageListener(record, sender) {
+	if (!record) return;
+	await fpdGlobals;
+	try {
 		switch (record.purpose) {
 			case "fp-detection":
 				// check objects existance => if do not exist, create new one
@@ -758,7 +793,7 @@ function fpdCommonMessageListener(record, sender) {
 				// increase counter for total accesses
 				fpCounterObj["total"] = fpCounterObj["total"] || 0;
 				fpCounterObj["total"] += 1;
-				fpDb.update(record.resource, sender.tab.id, record.type, fpCounterObj["total"]);
+				fpdObservable.update(record.resource, sender.tab.id, record.type, fpCounterObj["total"]);
 
 				// Track callers
 				fpCounterObj["callers"] = fpCounterObj["callers"] || {};
@@ -868,6 +903,11 @@ function fpdCommonMessageListener(record, sender) {
 				fpd_track_callers_tab = undefined;
 			}
 		}
+	} catch (e) {
+		console.error(e, "Error processing", record);
+		throw e;
+	} finally {
+		CachedStorage.save();
 	}
 }
 
@@ -898,12 +938,12 @@ function fpdRequestCancel(requestDetails) {
 /**
  * The function that loads module configuration from sync storage.
  */
-function fpdLoadConfiguration() {
-	browser.storage.sync.get(["fpDetectionOn", "fpdWhitelist", "fpdSettings"]).then(function(result) {
-		fpDetectionOn = result.fpDetectionOn ? true : false;
-		fpdWhitelist = result.fpdWhitelist ? result.fpdWhitelist : {};
-		fpdSettings = result.fpdSettings ? result.fpdSettings : {};
-	});
+async function fpdLoadConfiguration() {
+	({fpDetectionOn, fpdWhitelist, fpdSettings} = await browser.storage.sync.get({
+		fpDetectionOn: false,
+		fpdWhitelist: {},
+		fpdSettings: {},
+ 	}));
 }
 
 /**
@@ -915,7 +955,7 @@ function fpdLoadConfiguration() {
 function processGroupsRecursive(input, groupsLevel) {
 	fpGroups[groupsLevel][input.name] = {};
 	fpGroups[groupsLevel][input.name]["description"] = input["description"] || "";
-	
+
 	// criteria missing => set implicit criteria
 	fpGroups[groupsLevel][input.name]["criteria"] = input["criteria"] || [{value:1, weight:1}];
 	fpGroups[groupsLevel][input.name]["items"] = {};
@@ -1031,6 +1071,7 @@ function refreshDb(tabId) {
 	if (availableTabs[tabId] && availableTabs[tabId].timerId) {
 		clearTimeout(availableTabs[tabId].timerId);
 	}
+	CachedStorage.save();
 }
 
 /**
@@ -1067,18 +1108,19 @@ function evaluateFingerprinting(tabId) {
 			latestEvals[tabId].severity = evalResult.severity;
 		}
 
-		// modify color of browserAction
+		// modify color of action icon
 		if (evalResult.severity[2]) {
-			browser.browserAction.setBadgeBackgroundColor({color: evalResult.severity[2], tabId: tabId});
+			actionApi.setBadgeBackgroundColor({color: evalResult.severity[2], tabId: tabId});
 		}
 
 		// if actualWeight of root group is higher than 0 => reactive phase and applying measures
 		if (evalResult.weight) {
 
 			// create notification for user if behavior is "notification" or higher (only once for every tab load)
-			if (fpdSettings.notifications == 1 && !latestEvals[tabId].stopNotifyFlag) {
-				latestEvals[tabId].stopNotifyFlag = true;
+			if (fpdSettings.notifications == 1 && !stopNotifyFlag[tabId]) {
 				notifyFingerprintBlocking(tabId);
+				stopNotifyFlag[tabId] = true;
+				CachedStorage.save();
 			}
 
 			// block request and clear cache data only if "blocking" behavior is set

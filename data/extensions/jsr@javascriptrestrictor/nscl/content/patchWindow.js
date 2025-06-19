@@ -1,7 +1,7 @@
 /*
  * NoScript Commons Library
  * Reusable building blocks for cross-browser security/privacy WebExtensions.
- * Copyright (C) 2020-2023 Giorgio Maone <https://maone.net>
+ * Copyright (C) 2020-2024 Giorgio Maone <https://maone.net>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -56,20 +56,27 @@
  */
 
 function patchWindow(patchingCallback, env = {}) {
-  if (typeof patchingCallback !== "function") {
-    patchingCallback = new Function("unwrappedWindow", "env", patchingCallback);
-  }
-  let eventId = this && this.eventId || `windowPatchMessages:${uuid()}`;
-  let { dispatchEvent, addEventListener } = window;
+  const forcedPortId = patchingCallback.portId;
+  const justPort = forcedPortId && !patchingCallback.code;
+  const portId = forcedPortId ||
+    this && this.portId ||
+    `windowPatchMessages:${uuid()}`;
+
+  const { dispatchEvent, addEventListener } = self;
 
   function Port(from, to) {
+    if (!self.document) {
+      // ServiceWorker scope, dummy port, won't be used.
+      this.postMessage = () => {};
+      return;
+    }
     // we need a double dispatching dance and maintaining a stack of
     // return values / thrown errors because Chromium seals the detail object
     // (on Firefox we could just append further properties to it...)
     let retStack = [];
 
     function fire(e, detail, target = window) {
-      dispatchEvent.call(target, new CustomEvent(`${eventId}:${e}`, {detail, composed: true}));
+      dispatchEvent.call(target, new CustomEvent(`${portId}:${e}`, {detail, composed: true}));
     }
     this.postMessage = function(msg, target = window) {
       retStack.push({});
@@ -79,7 +86,7 @@ function patchWindow(patchingCallback, env = {}) {
       if (ret.error) throw ret.error;
       return ret.value;
     };
-    addEventListener.call(window, `${eventId}:${from}`, event => {
+    addEventListener.call(window, `${portId}:${from}`, event => {
       if (typeof this.onMessage === "function" && event.detail) {
         let ret = {};
         try {
@@ -90,7 +97,7 @@ function patchWindow(patchingCallback, env = {}) {
         fire(`return:${to}`, ret);
       }
     }, true);
-    addEventListener.call(window, `${eventId}:return:${from}`, event => {
+    addEventListener.call(window, `${portId}:return:${from}`, event => {
       let {detail} = event;
       if (detail && retStack.length) {
        retStack[retStack.length -1] = detail;
@@ -99,9 +106,22 @@ function patchWindow(patchingCallback, env = {}) {
     this.onMessage = null;
   }
   let port = new Port("extension", "page");
+  if (patchWindow.disabled) {
+    return port;
+  }
+  if (justPort) {
+    return port;
+  } else if (patchingCallback.code) {
+    patchingCallback = patchingCallback.code;
+  }
 
-  let nativeExport = this && this.exportFunction || typeof exportFunction == "function";
-  if (!nativeExport) {
+  const nativeExport = typeof exportFunction == "function";
+  if (typeof patchingCallback !== "function") {
+    patchingCallback =
+      nativeExport ? new Function("unwrappedWindow", "env", patchingCallback)
+      : `function (unwrappedWindow, env) {\n${patchingCallback}\n}`;
+  }
+  if (!(nativeExport || this && this.exportFunction)) {
     // Chromium
     let exportFunction = (func, targetObject, {defineAs, original} = {}) => {
       try {
@@ -181,24 +201,36 @@ function patchWindow(patchingCallback, env = {}) {
     let cloneInto = (obj, targetObject) => {
       return obj; // dummy for assignment
     };
-    let script = document.createElement("script");
-    script.text = `
+
+    const code = `
     (() => {
       let patchWindow = ${patchWindow};
       let cloneInto = ${cloneInto};
       let exportFunction = ${exportFunction};
       let env = ${JSON.stringify(env)};
-      let eventId = ${JSON.stringify(eventId)};
+      let portId = ${JSON.stringify(portId)};
+      const console = Object.fromEntries(Object.entries(self.console).map(([n, v]) => v.bind ? [n, v.bind(self.console)] : [n,v]));
+
       env.port = new (${Port})("page", "extension");
       ({
         patchWindow,
         exportFunction,
         cloneInto,
-        eventId,
+        portId,
       }).patchWindow(${patchingCallback}, env);
     })();
     `;
-    document.documentElement.insertBefore(script, document.documentElement.firstChild);
+    if (!self.document) {
+      // we're doing it with userScripts on mv3
+      return {portId, code};
+    }
+    let script = document.createElement("script");
+    script.text = code;
+    try {
+      document.documentElement.insertBefore(script, document.documentElement.firstChild);
+    } catch(e) {
+      console.error(e, code);
+    }
     script.remove();
     return port;
   }
@@ -290,10 +322,12 @@ function patchWindow(patchingCallback, env = {}) {
     }
     // auto-trigger window patching whenever new elements are added to the DOM
     let patchAll = () => {
-      const win = xray.unwrap(window);
-      for (let j = 0; j in win; j++) {
+      if (patchWindow.disabled) {
+        observer.disconnect();
+      }
+      for (let j = 0; j in window; j++) {
         try {
-          modifyWindow(win[j]);
+          modifyWindow(window[j]);
         } catch (e) {
           console.error(e, `Patching frames[${j}]`);
         }
@@ -306,14 +340,22 @@ function patchWindow(patchingCallback, env = {}) {
     let patchHandler = {
       apply(target, thisArg, args) {
         let ret = Reflect.apply(target, thisArg, args);
-        thisArg = thisArg && xray.wrap(thisArg);
-        if (thisArg) {
-          thisArg = xray.wrap(thisArg);
-          if ((thisArg.ownerDocument || thisArg) === xrayWin.document) {
-            patchAll();
+        const wrapped = thisArg && xray.wrap(thisArg);
+        if (wrapped) {
+          try {
+            if ((wrapped.ownerDocument || wrapped) === xrayWin.document) {
+              patchAll();
+            }
+          } catch (e) {
+            console.error("Can't propagate patches (likely SOP violation).", e, thisArg, wrapped, location); // DEV_ONLY
           }
         }
-        return ret ? xray.forPage(ret, win) : ret;
+        try {
+          return ret ? xray.forPage(ret, win) : ret;
+        } catch (e) {
+          console.error("Can't wrap return value.", e, thisArg, target, args, ret, location); // DEV_ONLY
+        }
+        return ret;
       }
     };
 
@@ -419,3 +461,28 @@ if (patchWindow.xrayEnabled) {
     frameElement.dispatchEvent(new CustomEvent(eventId));
   }
 }
+
+Object.defineProperty(patchWindow, "disabled", {
+  get() {
+    if (typeof ns === "object" && ns) {
+      if (ns.allows && ns.policy) {
+        const value = !ns.allows("script");
+        Object.defineProperty(patchWindow, "disabled", { value, configurable: true });
+        return value;
+      }
+      if (typeof ns.on === "function") {
+        ns.on("capabilities", () => {
+          if (ns.allows) {
+            this.disabled;
+          }
+        });
+      }
+    }
+    return false;
+  },
+  set(value) {
+    Object.defineProperty(patchWindow, "disabled", { value, configurable: true });
+    return value;
+  },
+  configurable: true,
+});

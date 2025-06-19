@@ -1,7 +1,7 @@
 /*
  * NoScript Commons Library
  * Reusable building blocks for cross-browser security/privacy WebExtensions.
- * Copyright (C) 2020-2023 Giorgio Maone <https://maone.net>
+ * Copyright (C) 2020-2024 Giorgio Maone <https://maone.net>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -18,20 +18,29 @@
  * this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+"use strict";
 {
-  let PREFIX = typeof browser === "object" && typeof importScripts === "undefined"
+  const PREFIX = typeof browser === "object" && typeof importScripts === "undefined"
     ? `[${browser.runtime.getManifest().name}]` : '';
 
-  let debugCount = 0;
+  const startupTime = Date.now();
+  let lastDebugTime = startupTime;
+  let ordinal = 1;
 
-  function log(msg, ...rest) {
-    console.log(`${PREFIX} ${msg}`, ...rest);
-  }
+  const getStack = () => new Error().stack.replace(/^(?:Error.*\n)?(?:.*\n){2}/, "");
 
-  function debug(msg, ...rest) {
-  }
-
-  function error(e, msg, ...rest) {
-    console.error(`${PREFIX} ${msg}`, ...rest, e, e.message, e.stack);
-  }
+  Object.assign(globalThis, {
+    log(msg, ...rest) {
+      console.log(`${PREFIX} ${msg}`, ...rest);
+    },
+    debug(msg, ...rest) {
+      const ts = Date.now();
+      const sinceStartup = ts - startupTime;
+      const elapsed = ts - lastDebugTime;
+      lastDebugTime = ts;
+    },
+    error(e, msg, ...rest) {
+      console.error(e, `${PREFIX} ${msg}`, ...rest, getStack());
+    },
+  });
 }

@@ -1,7 +1,7 @@
 /*
  * NoScript Commons Library
  * Reusable building blocks for cross-browser security/privacy WebExtensions.
- * Copyright (C) 2020-2023 Giorgio Maone <https://maone.net>
+ * Copyright (C) 2020-2024 Giorgio Maone <https://maone.net>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -19,17 +19,27 @@
  */
 
 'use strict';
+{
+  const _impl = "randomUUID" in crypto
+    ? () => crypto.randomUUID()
+    : () =>
+      ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,
+          c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4)
+          .toString(16))
+    ;
 
-function uuid() {
-  try {
-    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,
-      c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4)
-            .toString(16));
-  } catch (e) {
-    // fallback, as the Tor Browser seems to fail above
-    uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  // if crypto API is missing or broken
+  const _fallback =  () =>
+    'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
       let r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
       return v.toString(16);
     });
+
+  var uuid = function() {
+    try {
+      return _impl();
+    } catch (e) {
+      return _fallback();
+    }
   }
 }

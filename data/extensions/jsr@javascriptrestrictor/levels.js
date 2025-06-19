@@ -58,17 +58,17 @@ var wrapping_groups = {
 				{
 					short: browser.i18n.getMessage("jssgroupPoor"),
 					description: browser.i18n.getMessage("jssgroupTimePoorDescription"),
-					config: [2, false],
+					config: [10, false],
 				},
 				{
 					short: browser.i18n.getMessage("jssgroupLow"),
 					description: browser.i18n.getMessage("jssgroupTimeLowDescription"),
-					config: [1, false],
+					config: [100, false],
 				},
 				{
 					short: browser.i18n.getMessage("jssgroupHigh"),
 					description: browser.i18n.getMessage("jssgroupTimeHighDescription"),
-					config: [0, true],
+					config: [1000, true],
 				},
 			],
 			wrappers: [
@@ -78,6 +78,8 @@ var wrapping_groups = {
 				"PerformanceEntry.prototype",
 				// ECMA
 				"window.Date",
+				// TEMPORAL
+				"Temporal.Now.instant",
 				// DOM
 				"Event.prototype.timeStamp",
 				// GP
@@ -724,8 +726,9 @@ modify_wrapping_groups();
  * @param String to the object which presence to check.
  */
 function is_api_undefined(api) {
+	if (!self.window) return false; // mv3 service worker?
 	let s = api.split(".");
-	let last = window;
+	let last = self;
 	for (p of s) {
 		try {
 			if (last[p] === undefined) {
@@ -912,7 +915,7 @@ let levels_initialised = false; // Initialized in updateLevels()
 let fp_levels_initialised = false; // Initialized in fp_levels.js/loadFpdConfig()
 let levels_updated_callbacks = [];
 var tweak_domains = tweak_domains || {};
-function updateLevels(res) {
+async function updateLevels(res) {
 	init_levels();
 	custom_levels = res["custom_levels"] || {};
 	for (let key in custom_levels) {
@@ -963,11 +966,111 @@ function updateLevels(res) {
 		var orig_levels_updated_callbacks = levels_updated_callbacks;
 		levels_updated_callbacks = [];
 		orig_levels_updated_callbacks.forEach((it) => it());
+		await updateUserScripts();
 	}
 }
 browser.storage.sync.get(null).then(updateLevels);
 
+var wrappersPortId = null;
+var cachedSiteSettings = null;
+async function updateUserScripts() {
+	if (browser.tabs.executeScript || !("userScripts" in browser) || self.window) {
+		return;
+	}
+	if (!cachedSiteSettings) {
+		({wrappersPortId, cachedSiteSettings} = await
+			browser.storage.local.get(["wrappersPortId", "cachedSiteSettings"]));
+	}
+	siteSettings = JSON.stringify({domains, fpdWhitelist, fpdOn: fpDetectionOn && fpdSettings.detection});
+	if (siteSettings == cachedSiteSettings) {
+		return;
+	}
+	cachedSiteSettings = siteSettings;
+	const confCache = new Map();
+	const allGlobs = new Set();
+	const entries = Object.entries(domains);
+	entries.push(["*", default_level]);
+	let count = 0;
+	for (const [domain, l] of entries) {
+		if (l.tweaks && !l.wrappers) {
+			l.wrappers = wrapping_groups.get_wrappers(l);
+		}
+		const fpdOn = fpDetectionOn && !isFpdWhitelisted(domain);
+		const confKey = JSON.stringify([l.wrappers, fpdOn]);
+		let conf = confCache.get(confKey);
+		const glob = `*.${domain}`;
+		if (!conf) {
+			const fpdWrappers = fpdOn ? fp_levels.page_wrappers[fpdSettings.detection] : [];
+			const injection = fp_assemble_injection(l, fpdWrappers);
+			conf = {
+				id: `L:${l.level_id}-FPD:${fpdOn}-C:${count++}`,
+				injection,
+				includeGlobs: [glob],
+				excludeGlobs: [],
+			};
+			confCache.set(confKey, conf);
+		} else {
+			conf.includeGlobs.push(glob);
+		}
+		if (domain == '*') { // default level
+			conf.excludeGlobs = [... allGlobs].filter(g => !conf.includeGlobs.includes(g));
+			conf.includeGlobs = [];
+			conf.matches = ["<all_urls>"];
+			break;
+		}
+		allGlobs.add(glob);
+		const imply = `.${domain}`;
+		for (const otherConf of confCache.values()) {
+			if (otherConf === conf) continue;
+			const otherImplied = otherConf.includeGlobs.filter(g => g !== glob && g.endsWith(imply));
+			for (const impliedGlob of otherImplied) {
+				conf.excludeGlobs.push(impliedGlob);
+			}
+			const otherImplies = otherConf.includeGlobs.filter(g => glob.endsWith(g.replace('*', '')));
+			for (const implyingGlob of otherImplies) {
+				otherConf.excludeGlobs.push(implyingGlob);
+			}
+		}
+	}
+
+	const usTemplate = {
+		runAt: "document_start",
+		allFrames: true,
+		world: "MAIN",
+	};
+	const globs2matches = globs => [... new Set(globs)].map(g => `*://${g}/*`);
+
+	const scripts = [];
+	for (const conf of confCache.values()) {
+		const {portId, code} = patchWindow({
+			portId: wrappersPortId,
+			code: conf.injection,
+		});
+		if (wrappersPortId !== portId) {
+			wrappersPortId = portId;
+		}
+		browser.storage.local.set({cachedSiteSettings, wrappersPortId});
+		const {id, includeGlobs, excludeGlobs} = conf;
+		const opts = {
+			id,
+			matches: conf.matches || globs2matches(includeGlobs),
+			excludeMatches: globs2matches(excludeGlobs),
+		};
+		const debugCode = `console.info("Injecting wrapper for " + document.URL + ": "  + JSON.stringify(${JSON.stringify(opts)}) + ", ${portId}.");`;
+		opts.js =  [{code: debugCode}, {code}];
+		scripts.push(
+			Object.assign(opts, usTemplate)
+		);
+	}
+
+	await browser.userScripts.unregister();
+	if (scripts.length) {
+		await browser.userScripts.register(scripts);
+	}
+}
+
 function changedLevels(changed, area) {
+	if (area !== "sync") return;
 	browser.storage.sync.get(null).then(updateLevels);
 }
 browser.storage.onChanged.addListener(changedLevels);
@@ -1033,7 +1136,7 @@ function getCurrentLevelJSON(url) {
 	for (let domain of subDomains.reverse()) {
 		if (domain in domains) {
 			let l = domains[domain];
-			if (l.tweaks) {
+			if (l.tweaks && !l.wrappers) {
 				l.wrappers = wrapping_groups.get_wrappers(l);
 			}
 			return l;

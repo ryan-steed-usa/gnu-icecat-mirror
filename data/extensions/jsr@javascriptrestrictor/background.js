@@ -22,11 +22,15 @@
 //  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 //
 
-var tab_status = {};
-var tab_urls = {};
+// depends on /nscl/common/CachedStorage.js
+
+CachedStorage.init({
+	tab_status: {},
+	tab_urls: {},
+});
 
 function updateBadge(text, tabid) {
-	browser.browserAction.setBadgeText({text: text, tabId: tabid});
+	actionApi.setBadgeText({text: text, tabId: tabid});
 }
 
 // get active tab and pass it
@@ -46,6 +50,7 @@ function tabUpdate(tabid, changeInfo) {
 	}
 	let current_level = getCurrentLevelJSON(url);
 	tab_urls[tabid] = url;
+	CachedStorage.save();
 	return current_level;
 }
 // on tab reload or tab change, update metadata
@@ -93,11 +98,17 @@ function cspRequestProcessor(details) {
 // page context, subject to the page's CSP. Code inserted as script tags isn't subject
 // to script-src origins, it is, however, subject to the 'unsafe' group of script evaluation rules.
 if (typeof browser_polyfill_used !== "undefined" && browser_polyfill_used) {
-	browser.webRequest.onHeadersReceived.addListener(cspRequestProcessor,
-		{urls: ["<all_urls>"],
-		types: ["main_frame", "sub_frame"]},
-		["blocking", "responseHeaders"]
-	);
+	try {
+		browser.webRequest.onHeadersReceived.addListener(cspRequestProcessor,
+			{urls: ["<all_urls>"],
+			types: ["main_frame", "sub_frame"]},
+			["blocking", "responseHeaders"]
+		);
+	} catch (e) {
+		console.error(e);
+		// mv3, can't block!
+		// TODO: check whether we can do something about this eiter with DNR or new scripting APIs
+	}
 }
 
 // Communication channels
@@ -130,7 +141,7 @@ browser.runtime.onConnect.addListener(connected);
 /**
  * Listen to detected API calls and update badge accordingly
  */
-fpDb.add_observer({
+fpdObservable.add_observer({
 	notify: function(api, tabid, type, count) {
 		let group_name = wrapping_groups.wrapper_map[api];
 		if (!group_name) {

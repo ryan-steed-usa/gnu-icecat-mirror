@@ -1,7 +1,7 @@
 /*
  * NoScript Commons Library
  * Reusable building blocks for cross-browser security/privacy WebExtensions.
- * Copyright (C) 2020-2023 Giorgio Maone <https://maone.net>
+ * Copyright (C) 2020-2024 Giorgio Maone <https://maone.net>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
@@ -45,26 +45,26 @@ var NavCache = (() => {
   });
 
   browser.tabs.onRemoved.addListener(tabId => {
-    tabs.delete(tabId);
+    delete tabs[tabId];
   });
 
 
-  (async () => {
-
-    async function populateFrames(tab) {
-      let tabId = tab.id;
-      let frames =  await browser.webNavigation.getAllFrames({tabId});
-      if (!frames) return; // invalid tab
-      if (!tabs[tabId]) tabs[tabId] = {};
-      let top = tabs[tabId];
-      for ({frameId, url, parentFrameId} of frames) {
-        tab[frameId] = {url, parentFrameId};
-      }
-    }
-    await Promise.all((await browser.tabs.query({})).map(populateFrames));
-  })();
-
   return {
+    wakening: (async () => {
+      async function populateFrames(tab) {
+        let tabId = tab.id;
+        let frames =  await browser.webNavigation.getAllFrames({tabId});
+        if (!frames) return; // invalid tab
+        if (!tabs[tabId]) tabs[tabId] = {};
+        let top = tabs[tabId];
+        for ({frameId, url, parentFrameId} of frames) {
+          tab[frameId] = {url, parentFrameId};
+        }
+      }
+      await Promise.all((await browser.tabs.query({})).map(populateFrames));
+      return true;
+    })(),
+
     getTab(tabId) {
       return clone(tabs[tabId] || {});
     },

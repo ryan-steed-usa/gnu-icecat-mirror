@@ -27,20 +27,34 @@
  *
  * \note cached visited domains with related keys are only deleted after end of the session
  */
+
+// depends on /nscl/common/CachedStorage.js
+
 var Hashes = {
-  sessionHash : gen_random64().toString(),
-  visitedDomains : {},
-  getFor(url){
+	async getFor(url){
 		let site = getSiteForURL(url);
-	  let domainHash = this.visitedDomains[site];
-	  if (!domainHash) {
-		  let hmac = sha256.hmac.create(this.sessionHash);
-		  hmac.update(site);
-		  domainHash = hmac.hex();
-		  this.visitedDomains[site] = domainHash;
-	  }
-    return {
-      domainHash
-    };
-  }
+		let {sessionHash, visitedDomains} = await CachedStorage.init({
+			sessionHash: null,
+			visitedDomains: {}
+		}, "Hashes");
+		this.sessionHash = sessionHash ??= gen_random64().toString();
+		let siteHashes = visitedDomains[site];
+		if (!siteHashes) {
+			let hmac = sha256.hmac.create(this.sessionHash);
+			hmac.update(site);
+			const domainHash = hmac.hex();
+			const hash = sha256.create();
+			hash.update(JSON.stringify(domainHash));
+			// Redefine the domainHash for incognito context:
+			// Compute the SHA256 hash of the original hash so that the incognito hash is:
+			// * significantly different to the original domainHash,
+			// * computationally difficult to revert,
+			// * the same for all incognito windows (for the same domain).
+			const incognitoHash = hash.hex();
+			visitedDomains[site] = siteHashes = {domainHash, incognitoHash};
+			await CachedStorage.save(this);
+		}
+		return siteHashes;
+	}
 };
+
