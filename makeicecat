@@ -22,12 +22,11 @@
 
 # metadata
 readonly FFMAJOR=140
-readonly FFMINOR=2
+readonly FFMINOR=3
 readonly FFSUB=0
 readonly FFBUILD=1
 readonly GNUVERSION=1
-# SHA-256
-readonly SOURCEBALL_CHECKSUM='956dce675c3b706d563caf07ed3ca9af632ab830be710dfd4351da78a0a2ef55'
+readonly SOURCEBALL_CHECKSUM='efc6eb3c93756311bd2f9db3796c0bbee6e3f182975d857284168b3dec672316'
 readonly SOURCEBALL_SIGNINGKEY='14F26682D0916CDD81E37B6D61B7B526D98F0353'
 readonly FFVERSION=${FFMAJOR}.${FFMINOR}.${FFSUB}
 readonly SOURCEBALL=firefox-${FFVERSION}esr.source.tar.xz
@@ -42,7 +41,8 @@ readonly LIST_URL=lists.gnu.org/mailman/listinfo/bug-gnuzilla
 
 # l10n
 readonly L10N_URL=https://github.com/mozilla-l10n/firefox-l10n
-readonly L10N_REV=a0c1ffda4ed19c0399e4175610361179e09829de
+# for L10N_REV, use the commit specified in browser/locales/l10n-changesets.json
+readonly L10N_REV=64046fdc97c1b1886a479dead61e6dc5428ae6e6
 readonly L10N_CMP_URL=https://github.com/mozilla/compare-locales
 readonly L10N_CMP_REV=RELEASE_9_0_4
 readonly L10N_PREFS_DIR=browser/chrome/browser/preferences
