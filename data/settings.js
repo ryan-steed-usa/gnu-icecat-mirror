@@ -30,6 +30,7 @@ pref("privacy.firstparty.isolate", true);
 
 // Extensions cannot be updated without permission
 pref("extensions.update.enabled", false);
+pref("extensions.update.autoUpdateDefault", false);
 
 // Set the default locale to that of the operating system.
 pref("intl.locale.requested", "");
@@ -52,6 +53,9 @@ pref("extensions.blocklist.enabled", false);
 
 // disable app updater url
 pref("app.update.url", "http://127.0.0.1/");
+
+// Disable Smartblock embed placeholders
+pref("extensions.webcompat.smartblockEmbeds.enabled", false);
 
 //pref ("browser.startup.page" , 3);
 //pref ("browser.startup.homepage" , "https://www.gnu.org/software/gnuzilla/");
@@ -95,6 +99,7 @@ pref("network.protocol-handler.external.apt+http",true);
 pref("privacy.donottrackheader.enabled", true);
 pref("privacy.donottrackheader.value", 1);
 pref("dom.ipc.plugins.flash.subprocess.crashreporter.enabled", false);
+pref("browser.tabs.crashReporting.sendReport", false);
 pref("browser.safebrowsing.enabled", false);
 pref("browser.safebrowsing.downloads.remote.enabled", false);
 pref("browser.safebrowsing.malware.enabled", false);
@@ -105,6 +110,7 @@ pref("browser.safebrowsing.provider.google4.gethashURL", "");
 pref("browser.safebrowsing.provider.mozilla.gethashURL", "");
 pref("browser.safebrowsing.provider.mozilla.updateURL", "");
 pref("services.sync.privacyURL", "https://www.gnu.org/software/gnuzilla/");
+pref("services.sync.syncedTabs.showRemoteIcons", false);
 pref("social.enabled", false);
 pref("social.remote-install.enabled", false);
 pref("datareporting.policy.dataSubmissionEnabled", false);
@@ -116,6 +122,9 @@ pref("social.toast-notifications.enabled", false);
 pref("datareporting.policy.dataSubmissionEnabled", false);
 pref("datareporting.healthreport.service.enabled", false);
 pref("browser.slowStartup.notificationDisabled", true);
+pref("signon.icecatRelay.feature", "disabled");
+pref("signon.management.page.breach-alerts.enabled", false);
+pref("signon.management.page.vulnerable-passwords.enabled", false);
 pref("network.http.sendRefererHeader", 2);
 pref("network.http.referer.spoofSource", true);
 // We don't want to send the Origin header
@@ -130,8 +139,16 @@ pref("toolkit.telemetry.enabled", false);
 pref("toolkit.telemetry.server", "");
 pref("experiments.manifest.uri", ""); 
 pref("toolkit.telemetry.unified", false);
+pref("toolkit.telemetry.shutdownPingSender.enabled", false);
+pref("toolkit.telemetry.firstShutdownPing.enabled", false);
+pref("toolkit.telemetry.newProfilePing.enabled", false);
+pref("toolkit.telemetry.bhrPing.enabled", false);
 // Make sure updater telemetry is disabled; see <https://trac.torproject.org/25909>.
 pref("toolkit.telemetry.updatePing.enabled", false);
+// Disable the targeting context telemetry.
+pref("nimbus.telemetry.targetingContextEnabled", false);
+// Disable BackupService
+pref("browser.backup.enabled", false);
 // Do not tell what plugins do we have enabled: https://mail.mozilla.org/pipermail/firefox-dev/2013-November/001186.html
 pref("plugins.enumerable_names", "");
 pref("plugin.state.flash", 0);
@@ -145,10 +162,24 @@ pref("camera.control.face_detection.enabled", false);
 pref("camera.control.autofocus_moving_callback.enabled", false);
 pref("network.http.speculative-parallel-limit", 0);
 // No search suggestions
+pref("browser.search.suggest.enabled", false);
+pref("browser.search.serpEventTelemetryCategorization.enabled", false);
 pref("browser.urlbar.userMadeSearchSuggestionsChoice", true);
 pref("browser.urlbar.groupLabels.enabled", false);
 pref("browser.urlbar.merino.enabled", false);
-pref("browser.search.suggest.enabled", false);
+pref("browser.urlbar.suggest.addons", false);
+pref("browser.urlbar.suggest.fakespot", false);
+pref("browser.urlbar.suggest.mdn", false);
+pref("browser.urlbar.suggest.remotetab", false);
+pref("browser.urlbar.suggest.searches", false);
+pref("browser.urlbar.suggest.trending", false);
+pref("browser.urlbar.suggest.weather", false);
+pref("browser.urlbar.suggest.yelp", false);
+pref("browser.urlbar.trending.featureGate", false);
+pref("browser.urlbar.recentsearches.featureGate", false);
+pref("browser.urlbar.richSuggestions.featureGate", false);
+pref("browser.urlbar.showSearchTerms.enabled", false);
+pref("browser.urlbar.contextualSearch.enabled", false);
 // Always ask before restoring the browsing session
 pref("browser.sessionstore.max_resumed_crashes", 0);
 // Don't ping Mozilla for MitM detection, see <https://bugs.torproject.org/32321>
@@ -195,6 +226,10 @@ pref("privacy.resistFingerprinting", true);
 pref("webgl.disabled", true);
 pref("privacy.trackingprotection.cryptomining.enabled", true);
 pref("privacy.trackingprotection.fingerprinting.enabled", true);
+// Do not warm up network connections for places: menus and places: toolbar.
+pref("browser.places.speculativeConnect.enabled", false);
+// Turn off interaction measurements
+pref("browser.places.interactions.enabled", false);
 
 // Services
 pref("gecko.handlerService.schemes.mailto.0.name", "");
@@ -214,6 +249,13 @@ pref("browser.partnerlink.attributionURL", "");
 // Disable channel updates
 pref("app.update.enabled", false);
 pref("app.update.auto", false);
+pref("app.update.staging.enabled", false);
+pref("app.update.langpack.enabled", false);
+
+// Disable Generative AI features
+pref("browser.ml.chat.enabled", false);
+pref("browser.ml.chat.shortcuts", false);
+pref("browser.ml.chat.sidebar", false);
 
 // EME
 pref("media.eme.enabled", false);
@@ -221,6 +263,10 @@ pref("media.eme.apiVisible", false);
 
 // Firefox Accounts
 pref("identity.fxaccounts.enabled", false);
+pref("identity.fxaccounts.toolbar.enabled", false);
+pref("identity.fxaccounts.toolbar.pxiToolbarEnabled", false);
+pref("identity.fxaccounts.commands.remoteTabManagement.enabled", false);
+pref("identity.fxaccounts.telemetry.clientAssociationPing.enabled", false);
 
 // WebRTC
 pref("media.peerconnection.enabled", true);
@@ -248,6 +294,8 @@ pref("gecko.handlerService.schemes.irc.0.uriTemplate", "");
 // https://kiwiirc.com/client/irc.247cdn.net/?nick=Your%20Nickname#underwater-hockey
 // Don't call home for blacklisting
 pref("extensions.blocklist.enabled", false);
+// Disable data collection permissions.
+pref("extensions.dataCollectionPermissions.enabled", false);
  
 
 
@@ -267,6 +315,8 @@ pref ("extensions.recommendations.themeRecommendationUrl", "https://gnuzilla.gnu
 pref ("extensions.systemAddon.update.url", "");
 pref ("extensions.systemAddon.update.enabled", false);
 pref ("extensions.getAddons.cache.enabled", false);
+
+pref ("browser.discovery.enabled", false);
 
 // FIXME: find better URLs for these:
 pref ("extensions.getAddons.langpacks.url", "https://gnuzilla.gnu.org/mozzarella");
@@ -330,6 +380,8 @@ pref("browser.aboutHomeSnippets.updateUrl", "data:text/html");
 // In <about:preferences>, hide "More from Mozilla"
 // (renamed to "More from GNU" by the global renaming)
 pref("browser.preferences.moreFromMozilla", false);
+// Hide the "IceCat Labs" section
+pref("browser.preferences.experimental", false);
 
 // Disable hardware acceleration
 //pref("layers.acceleration.disabled", false);
@@ -414,6 +466,8 @@ pref("browser.region.network.scan", false);
 pref("browser.region.network.url", "");
 
 // Disable VPN/mobile promos
+pref("browser.contentblocking.database.enabled", false);
+pref("browser.contentblocking.cfr-milestone.enabled", false);
 pref("browser.contentblocking.report.hide_vpn_banner", true);
 pref("browser.contentblocking.report.mobile-ios.url", "");
 pref("browser.contentblocking.report.mobile-android.url", "");
@@ -423,6 +477,7 @@ pref("browser.contentblocking.report.vpn.url", "");
 pref("browser.contentblocking.report.vpn-promo.url", "");
 pref("browser.contentblocking.report.vpn-android.url", "");
 pref("browser.contentblocking.report.vpn-ios.url", "");
+pref("browser.contentblocking.report.lockwise.enabled", false);
 pref("browser.privatebrowsing.promoEnabled", false);
 pref("browser.privatebrowsing.vpnpromourl", "");
 pref("browser.vpn_promo.enabled", false);

@@ -1,5 +1,15 @@
---- a/browser/base/content/navigator-toolbox.inc.xhtml	2025-08-12 02:31:44.000000000 +0900
-+++ b/browser/base/content/navigator-toolbox.inc.xhtml	2025-08-26 21:10:15.709368257 +0900
+--- a/browser/base/content/browser-menubar.inc
++++ b/browser/base/content/browser-menubar.inc
+@@ -362,6 +362,7 @@
+                         data-l10n-id="menu-tools-fxa-re-auth"/>
+ 
+               <menuitem id="menu_openFirefoxView"
++                        hidden="true"
+                         data-l10n-id="menu-tools-firefox-view"/>
+               <menuseparator id="devToolsSeparator"/>
+               <menu id="browserToolsMenu" data-l10n-id="menu-tools-browser-tools">
+--- a/browser/base/content/navigator-toolbox.inc.xhtml
++++ b/browser/base/content/navigator-toolbox.inc.xhtml
 @@ -41,6 +41,7 @@
                         role="button"
                         aria-pressed="false"

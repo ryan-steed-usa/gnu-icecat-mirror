@@ -1,6 +1,6 @@
---- a/browser/base/content/browser-menubar.inc	2025-08-26 21:16:57.929903122 +0900
-+++ b/browser/base/content/browser-menubar.inc	2025-08-26 21:17:09.257918204 +0900
-@@ -431,6 +431,7 @@
+--- a/browser/base/content/browser-menubar.inc
++++ b/browser/base/content/browser-menubar.inc
+@@ -432,6 +432,7 @@
                            disabled="true"
                            appmenu-data-l10n-id="appmenuitem-report-broken-site"/>
                  <menuitem id="feedbackPage"

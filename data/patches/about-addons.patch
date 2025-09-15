@@ -1,6 +1,6 @@
 --- a/toolkit/mozapps/extensions/content/aboutaddons.html
 +++ b/toolkit/mozapps/extensions/content/aboutaddons.html
-@@ -171,12 +171,12 @@
+@@ -201,12 +201,12 @@
      <template name="addon-page-header">
        <div class="sticky-container">
          <div class="main-search">
@@ -15,7 +15,7 @@
          </div>
          <div class="main-heading">
            <button
-@@ -693,6 +693,7 @@
+@@ -769,6 +769,7 @@
        </div>
        <div class="view-footer-item">
          <a

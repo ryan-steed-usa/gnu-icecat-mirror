@@ -1,5 +1,14 @@
---- a/browser/base/content/aboutDialog.xhtml	2025-08-26 21:23:08.866394736 +0900
-+++ b/browser/base/content/aboutDialog.xhtml	2025-08-26 21:23:19.986408921 +0900
+--- a/browser/base/content/aboutDialog.xhtml
++++ b/browser/base/content/aboutDialog.xhtml
+@@ -124,7 +124,7 @@
+               <label is="text-link" useoriginprincipal="true" href="about:credits" data-l10n-name="community-exp-creditsLink"/>
+             </description>
+           </vbox>
+-          <description class="text-blurb" id="communityDesc" data-l10n-id="community-2">
++          <description class="text-blurb" id="communityDesc" data-l10n-id="community-2" hidden="true">
+             <label is="text-link" href="https://www.mozilla.org/?utm_source=firefox-browser&#38;utm_medium=firefox-desktop&#38;utm_campaign=about-dialog" data-l10n-name="community-mozillaLink"/>
+             <label is="text-link" useoriginprincipal="true" href="about:credits" data-l10n-name="community-creditsLink"/>
+           </description>
 @@ -139,7 +139,6 @@
        <hbox pack="center">
          <label is="text-link" class="bottom-link" useoriginprincipal="true" href="about:license" data-l10n-id="bottomLinks-license"/>
@@ -8,8 +17,8 @@
        </hbox>
        <description id="trademark" data-l10n-id="trademarkInfo"></description>
      </vbox>
---- a/browser/base/content/aboutDialog.css	2025-08-26 21:26:43.618669160 +0900
-+++ b/browser/base/content/aboutDialog.css	2025-08-26 21:31:54.207067616 +0900
+--- a/browser/base/content/aboutDialog.css
++++ b/browser/base/content/aboutDialog.css
 @@ -32,10 +32,9 @@
  #rightBox {
    background-image: url("chrome://branding/content/about-wordmark.svg");
@@ -22,6 +31,3 @@
    /* We don't want this box to contribute arbitrarily to the intrinsic size of
     * the dialog, so set the width to a reasonable size, but let it flex to take
     * all available space. */
---- a/browser/base/content/aboutDialog.css
-+++ b/browser/base/content/aboutDialog.css
- #rightBox:-moz-locale-dir(rtl) {

@@ -1,6 +1,6 @@
 --- a/browser/base/content/browser-siteProtections.js
 +++ b/browser/base/content/browser-siteProtections.js
-@@ -1816,7 +1816,7 @@
+@@ -1950,7 +1950,7 @@
        this._trackingProtectionIconContainer.hidden = true;
        return;
      }

@@ -710,6 +710,9 @@ s/OpenSource/Free Software/g;
     # names in build-time generated source files like TelemetryEventEnums.h.
     sed 's/IceCatview/Icecatview/g' -i browser/components/icecatview/metrics.yaml
 
+    # Do not synchronize any preferences by default
+    sed 's/^pref *("\(services\.sync\.prefs\.sync\.[-_.A-Za-z0-9]*\)", *true);/pref("\1", false);/' -i browser/app/profile/icecat.js
+
     # Copy js settings
     cat "${DATADIR}"/settings.js >> browser/app/profile/icecat.js
 
