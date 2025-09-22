@@ -302,7 +302,7 @@ verify_sources()
 {
     echo Verifying Firefox tarball
     gpg --recv-keys --keyserver keyserver.ubuntu.com ${SOURCEBALL_SIGNINGKEY}
-    gpg --verify ${SOURCEBALL}.asc
+    gpg --verify ${SOURCEBALL}.asc ${SOURCEBALL}
     echo -n ${SOURCEBALL_CHECKSUM} ${SOURCEBALL} | sha256sum -c -
 }
 
