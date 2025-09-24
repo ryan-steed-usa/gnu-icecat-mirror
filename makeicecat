@@ -623,7 +623,7 @@ apply_batch_branding()
 {
     find . -depth | grep -i fennec |
         rename_files -e s/fennec/icecatmobile/g -e s/Fennec/IceCatMobile/g
-    find . -depth | grep -i firefox |
+    find . -depth -not -iregex '.*/third_party/rust/.*' | grep -i firefox |
         rename_files -e s/org.mozilla.firefox/org.gnu.icecat/g -e s/firefox/icecat/g -e s/Firefox/IceCat/g
 
     echo "Running batch rebranding (this will take a while)"
@@ -664,7 +664,8 @@ s|https://www\\.mozilla\\.org/icecat/?utm_source=synceol|https://www.mozilla.org
 s|www\\.gnu\\.org/software/gnuzilla/icecat-help|libreplanet.org/wiki/Group:IceCat/Help|g;
 "
     find . -type f -not -iregex '.*changelog.*' -not -iregex '.*copyright.*' \
-         -not -iregex '.*third_party/rust.*' \
+         -not -iregex '.*/third_party/rust/.*' -not -name Cargo.lock \
+         -not -iregex '.*/\.cargo/.*' \
          -execdir /bin/sed --follow-symlinks -i "${sed_script}" '{}' ';'
 
     find l10n -type f -execdir /bin/sed --follow-symlinks -i "s/from GNU/from Mozilla/g" '{}' ';'
@@ -699,6 +700,11 @@ s/OpenSource/Free Software/g;
     # Set migrator scripts
     cp browser/components/migration/IceCatProfileMigrator.sys.mjs browser/components/migration/FirefoxProfileMigrator.sys.mjs
     sed 's/IceCat/Firefox/g; s/icecat/firefox/g' -i browser/components/migration/FirefoxProfileMigrator.sys.mjs
+
+    # Don't mangle crate urls. This invalidates Cargo.lock and causes problems for fetching crates
+    find . -name Cargo.toml | xargs /bin/sed 's|github.com/IceCatGraphics|github.com/FirefoxGraphics|' -i
+    # Rename local crate that is used in different places. Otherwise you have to tangle it in moz.build as well.
+    find . -name Cargo.lock | xargs /bin/sed 's|firefox-on-glean|icecat-on-glean|' -i
 
     # Sort the list of DevToolsModules, which becomes unsorted by our rebranding
     sort_inner_list_in_file "DevToolsModules(" ")" devtools/client/netmonitor/src/connector/moz.build
