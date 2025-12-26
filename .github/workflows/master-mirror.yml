@@ -1,0 +1,22 @@
+on:
+  schedule:
+    - cron: '33 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  mirror_update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: master
+      - name: Add remote
+        run: git remote add upstream https://git.savannah.gnu.org/git/gnuzilla.git
+      - name: Fetch all
+        run: git fetch --all
+      - name: Pull upstream
+        run: git pull upstream master
+      - name: Push update
+        run: git push --set-upstream origin master
+      - name: Push tags
+        run: git push --tags
