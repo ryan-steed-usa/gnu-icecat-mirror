@@ -20,7 +20,7 @@ jobs:
       - name: Fetch latest tag
         id: version
         run: |
-          git switch master
+          git fetch --tags
           VERSION=$(git describe --tags --abbrev=0)
           echo "Found tag $VERSION from git"
           echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
@@ -49,7 +49,7 @@ jobs:
       - name: Extract CHANGELOG entry from git
         id: changelog
         run: |
-          CHANGELOG=$(git show --abbrev-commit  --no-patch ${{ steps.version.outputs.VERSION }} | sed '/-\+BEGIN\s\+PGP\s\+SIGNATURE-\+/,/-\+END\s\+PGP\s\+SIGNATURE-\+/d')
+          CHANGELOG=$(git show --abbrev-commit --no-patch ${{ steps.version.outputs.VERSION }} | sed '/-\+BEGIN\s\+PGP\s\+SIGNATURE-\+/,/-\+END\s\+PGP\s\+SIGNATURE-\+/d')
           echo "Extracted changelog from git:"
           echo -e "$CHANGELOG"
           echo "CHANGELOG=$CHANGELOG" >> "$GITHUB_OUTPUT"
