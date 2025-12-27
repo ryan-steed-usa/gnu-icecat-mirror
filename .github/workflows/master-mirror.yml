@@ -13,10 +13,8 @@ jobs:
       - name: Add remote
         run: git remote add upstream https://git.savannah.gnu.org/git/gnuzilla.git
       - name: Fetch all
-        run: git fetch --all
+        run: git fetch --tags upstream
       - name: Pull upstream
         run: git pull upstream master
       - name: Push update
-        run: git push --set-upstream origin master
-      - name: Push tags
-        run: git push --tags
+        run: git push --tags --set-upstream origin master
