@@ -24,6 +24,7 @@ jobs:
         with:
           script: |
             return await github.rest.repos.getReleaseByTag({
+              target_commitish: "master",
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: `${{ github.ref_name }}`,
@@ -40,6 +41,7 @@ jobs:
       - name: Extract CHANGELOG entry from git
         id: changelog
         run: |
+          git switch master
           CHANGELOG=$(git show --abbrev-commit  --no-patch ${{ github.ref_name }} | sed '/-\+BEGIN\s\+PGP\s\+SIGNATURE-\+/,/-\+END\s\+PGP\s\+SIGNATURE-\+/d')
           echo "Extracted changelog from git:"
           echo -e "$CHANGELOG"
@@ -52,6 +54,7 @@ jobs:
           script: |
             const changelog = `${{ steps.changelog.outputs.CHANGELOG }}`;
             const release = await github.rest.repos.createRelease({
+              target_commitish: "master",
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: `${{ github.ref_name }}`,
