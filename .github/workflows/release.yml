@@ -49,14 +49,12 @@ jobs:
       - name: Extract CHANGELOG entry from git
         id: changelog
         run: |
-          {
-            CHANGELOG=$(git show --abbrev-commit --no-patch ${{ steps.version.outputs.VERSION }} | sed '/-\+BEGIN\s\+PGP\s\+SIGNATURE-\+/,/-\+END\s\+PGP\s\+SIGNATURE-\+/d')
-            echo "Extracted changelog from git:"
-            echo -e "$CHANGELOG"
-            echo 'CHANGELOG<<EOF'
-            $CHANGELOG
-            echo EOF
-          } >> "$GITHUB_OUTPUT"
+          CHANGELOG=$(git show --abbrev-commit --no-patch ${{ steps.version.outputs.VERSION }} | sed '/-\+BEGIN\s\+PGP\s\+SIGNATURE-\+/,/-\+END\s\+PGP\s\+SIGNATURE-\+/d')
+          echo "Extracted changelog from git:"
+          echo -e "$CHANGELOG"
+          echo 'CHANGELOG<<EOF' >> "$GITHUB_OUTPUT"
+          echo -e "$CHANGELOG" >> "$GITHUB_OUTPUT"
+          echo 'EOF' >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release
         uses: actions/github-script@v8
