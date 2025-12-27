@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*-gnu*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: master
+
+      - name: Check for existing release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            return await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: `${{ github.ref_name }}`,
+            }).then((release) => {
+              throw new Error(`Release ${release.data.name} found, aborting...`);
+            }).catch((error) => {
+              if (error.status === 404) {
+                return
+              } else {
+                throw error
+              }
+            })
+
+      - name: Extract CHANGELOG entry from git
+        id: changelog
+        run: |
+          CHANGELOG=$(git show --abbrev-commit  --no-patch ${{ github.ref_name }} | sed '/-\+BEGIN\s\+PGP\s\+SIGNATURE-\+/,/-\+END\s\+PGP\s\+SIGNATURE-\+/d')
+          echo "Extracted changelog from git:"
+          echo -e "$CHANGELOG"
+          echo "::set-output name=content::$CHANGELOG"
+          echo "CHANGELOG=$CHANGELOG" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const changelog = `${{ steps.changelog.outputs.CHANGELOG }}`;
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: `${{ github.ref_name }}`,
+              name: `Release ${{ github.ref_name }}`,
+              body: changelog,
+            })
+            console.log(`New release created ${release.data.html_url}`)
