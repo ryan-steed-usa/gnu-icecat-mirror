@@ -1,3 +1,5 @@
+name: Master-Mirror
+
 on:
   schedule:
     - cron: '33 3 * * *'
