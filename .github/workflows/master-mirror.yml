@@ -12,11 +12,12 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: master
-      - name: Add remote
-        run: git remote add upstream https://git.savannah.gnu.org/git/gnuzilla.git
-      - name: Fetch all
-        run: git fetch --tags upstream
-      - name: Pull upstream
-        run: git pull upstream master
-      - name: Push update
-        run: git push --tags --set-upstream origin master
+      - name: Update mirror
+        run: |
+          git remote add upstream https://git.savannah.gnu.org/git/gnuzilla.git
+          git fetch --tags upstream
+          git pull upstream master
+          git push --tags --set-upstream origin master
+          gh workflow run release.yml --ref $(git describe --tags --abbrev=0)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
