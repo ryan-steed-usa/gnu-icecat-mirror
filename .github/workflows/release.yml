@@ -45,7 +45,6 @@ jobs:
           CHANGELOG=$(git show --abbrev-commit  --no-patch ${{ github.ref_name }} | sed '/-\+BEGIN\s\+PGP\s\+SIGNATURE-\+/,/-\+END\s\+PGP\s\+SIGNATURE-\+/d')
           echo "Extracted changelog from git:"
           echo -e "$CHANGELOG"
-          echo "::set-output name=content::$CHANGELOG"
           echo "CHANGELOG=$CHANGELOG" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release
