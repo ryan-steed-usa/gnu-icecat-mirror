@@ -18,6 +18,6 @@ jobs:
           git fetch --tags upstream
           git pull upstream master
           git push --tags --set-upstream origin master
-          gh workflow run release.yml --ref $(git describe --tags --abbrev=0)
+          gh workflow run release.yml --ref main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,14 +1,14 @@
-name: Release
+name: Latest Release
 
 on:
-  workflow_dispatch:
   push:
-    tags:
-      - 'v*-gnu*'
+    branches:
+      - master 
+
+  workflow_dispatch:
 
 jobs:
   release:
-    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
 
     steps:
@@ -17,16 +17,25 @@ jobs:
         with:
           ref: master
 
+      - name: Fetch latest tag
+        id: version
+        run: |
+          git switch master
+          VERSION=$(git describe --tags --abbrev=0)
+          echo "Found tag $VERSION from git"
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Check for existing release
         uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const version = `${{ steps.version.outputs.VERSION }}`;
             return await github.rest.repos.getReleaseByTag({
               target_commitish: "master",
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name: `${{ github.ref_name }}`,
+              tag_name: version,
             }).then((release) => {
               throw new Error(`Release ${release.data.name} found, aborting...`);
             }).catch((error) => {
@@ -40,8 +49,7 @@ jobs:
       - name: Extract CHANGELOG entry from git
         id: changelog
         run: |
-          git switch master
-          CHANGELOG=$(git show --abbrev-commit  --no-patch ${{ github.ref_name }} | sed '/-\+BEGIN\s\+PGP\s\+SIGNATURE-\+/,/-\+END\s\+PGP\s\+SIGNATURE-\+/d')
+          CHANGELOG=$(git show --abbrev-commit  --no-patch ${{ steps.version.outputs.VERSION }} | sed '/-\+BEGIN\s\+PGP\s\+SIGNATURE-\+/,/-\+END\s\+PGP\s\+SIGNATURE-\+/d')
           echo "Extracted changelog from git:"
           echo -e "$CHANGELOG"
           echo "CHANGELOG=$CHANGELOG" >> "$GITHUB_OUTPUT"
@@ -51,13 +59,14 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const version = `${{ steps.version.outputs.VERSION }}`;
             const changelog = `${{ steps.changelog.outputs.CHANGELOG }}`;
             const release = await github.rest.repos.createRelease({
               target_commitish: "master",
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name: `${{ github.ref_name }}`,
-              name: `Release ${{ github.ref_name }}`,
+              tag_name: version,
+              name: `Release for {version}`,
               body: changelog,
             })
             console.log(`New release created ${release.data.html_url}`)
