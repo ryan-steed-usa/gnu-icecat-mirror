@@ -32,7 +32,7 @@ jobs:
           script: |
             const version = `${{ steps.version.outputs.VERSION }}`;
             return await github.rest.repos.getReleaseByTag({
-              target_commitish: "master",
+              target_commitish: "main",
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: version,
