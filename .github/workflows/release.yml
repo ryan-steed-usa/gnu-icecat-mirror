@@ -31,7 +31,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const version = `${{ steps.version.outputs.VERSION }}`;
-            return await github.rest.repos.getReleaseByTag({
+            await github.rest.repos.getReleaseByTag({
               target_commitish: "main",
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -40,7 +40,7 @@ jobs:
               throw new Error(`Release ${release.data.name} found, aborting...`);
             }).catch((error) => {
               if (error.status === 404) {
-                return
+                return true
               } else {
                 throw error
               }
