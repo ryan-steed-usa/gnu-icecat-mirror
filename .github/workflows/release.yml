@@ -26,25 +26,15 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Check for existing release
-        uses: actions/github-script@v8
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const version = `${{ steps.version.outputs.VERSION }}`;
-            await github.rest.repos.getReleaseByTag({
-              target_commitish: "main",
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: version,
-            }).then((release) => {
-              throw new Error(`Release ${release.data.name} found, aborting...`);
-            }).catch((error) => {
-              if (error.status === 404) {
-                return true
-              } else {
-                throw error
-              }
-            })
+        run: |
+          if gh release view "${{ steps.version.outputs.VERSION }}" --json createdAt --jq '.[]'; then
+            echo "release found, aborting"
+            exit 1
+          else
+            exit 0
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract CHANGELOG entry from git
         id: changelog
