@@ -2,7 +2,7 @@
 #
 #    Copyright (C) 2014-2022  Ruben Rodriguez <ruben@gnu.org>
 #    Copyright (C) 2019-2024  Amin Bandali <bandali@gnu.org>
-#    Copyright (C) 2019-2025  Mark H Weaver <mhw@netris.org>
+#    Copyright (C) 2019-2026  Mark H Weaver <mhw@netris.org>
 #    Copyright (C) 2020  bill-auger <bill-auger@programmer.net>
 #
 #    This program is free software; you can redistribute it and/or modify
@@ -22,11 +22,11 @@
 
 # metadata
 readonly FFMAJOR=140
-readonly FFMINOR=6
+readonly FFMINOR=7
 readonly FFSUB=0
 readonly FFBUILD=1
 readonly GNUVERSION=1
-readonly SOURCEBALL_CHECKSUM='6c35c9ab507521033c8fd49f1b4c85ee158f33ed36f5781a663f116c3d604dc9'
+readonly SOURCEBALL_CHECKSUM='608a739071726f30236f7100ec5e30e1b8ec342d4e91e715948c287909cb1529'
 readonly SOURCEBALL_SIGNINGKEY='14F26682D0916CDD81E37B6D61B7B526D98F0353'
 readonly FFVERSION=${FFMAJOR}.${FFMINOR}.${FFSUB}
 readonly SOURCEBALL=firefox-${FFVERSION}esr.source.tar.xz
