@@ -28,16 +28,17 @@ jobs:
       - name: Check for existing release
         run: |
           if gh release view "${{ steps.version.outputs.VERSION }}" --json createdAt --jq '.[]'; then
-            echo "release found, aborting"
-            exit 1
+            echo "Release found, aborting"
+            echo "RELEASE_FOUND=true" >> "$GITHUB_OUTPUT"
           else
-            exit 0
+            echo "RELEASE_FOUND=false" >> "$GITHUB_OUTPUT"
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract CHANGELOG entry from git
         id: changelog
+        if: env.RELEASE_FOUND != 'true'
         run: |
           CHANGELOG=$(git show --abbrev-commit --no-patch ${{ steps.version.outputs.VERSION }} | sed '/-\+BEGIN\s\+PGP\s\+SIGNATURE-\+/,/-\+END\s\+PGP\s\+SIGNATURE-\+/d')
           echo "Extracted changelog from git:"
@@ -47,6 +48,7 @@ jobs:
           echo 'EOF' >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release
+        if: env.RELEASE_FOUND != 'true'
         uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
