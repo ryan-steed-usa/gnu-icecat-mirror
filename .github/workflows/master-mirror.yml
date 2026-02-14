@@ -2,7 +2,7 @@ name: Master-Mirror
 
 on:
   schedule:
-    - cron: '33 3 * * *'
+    - cron: '33 3,15 * * *'
   workflow_dispatch:
 
 jobs:
