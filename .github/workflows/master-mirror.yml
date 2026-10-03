@@ -14,7 +14,7 @@ jobs:
           ref: master
       - name: Update mirror
         run: |
-          git remote add upstream https://git.savannah.gnu.org/git/gnuzilla.git
+          git remote add upstream https://https.git.savannah.gnu.org/git/gnuzilla.git
           git fetch --tags upstream
           git pull upstream master
           git push --tags --set-upstream origin master
